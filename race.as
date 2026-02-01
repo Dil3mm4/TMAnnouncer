@@ -81,7 +81,7 @@ namespace RaceLogic {
                 PlayLap(lapsRemaining, (lapsRemaining == 1));
             } else {
                 // Checkpoint sound logic with intervals
-                bool shouldPlaySound = ShouldPlayCPSound(currentCp, int(CPsToFinishTotal));
+                bool shouldPlaySound = ShouldPlayCPSound(currentCp);
 
                 if (shouldPlaySound) {
                     auto pbCheckpoints = GetActualPBCheckpoints();
@@ -135,29 +135,15 @@ namespace RaceLogic {
     }
 
     // CP sound interval logic:
-    // - 2 CPs (0,1): play only on first (CP 1)
-    // - 3 CPs (0,1,2): play on first (CP 1), 33% chance on second (CP 2)
-    // - 4+ CPs: play every 2-4 CPs interval
-    bool ShouldPlayCPSound(int currentCp, int totalCPs) {
+    // NextCPToPlay starts at 0 (first CP). When currentCp matches, play sound
+    // and set next trigger 2-4 CPs ahead.
+    bool ShouldPlayCPSound(int currentCp) {
         if (S_CheckpointsAlways) return true;
 
-        int numCPs = totalCPs; // CPs before finish
-
-        if (numCPs <= 2) {
-            // Only play on first CP
-            return currentCp == 1;
-        } else if (numCPs == 3) {
-            // Play on first, 33% on second
-            if (currentCp == 1) return true;
-            if (currentCp == 2) return Math::Rand(0, 3) == 0;
-            return false;
-        } else {
-            // 4+ CPs: interval logic
-            if (currentCp >= NextCPToPlay) {
-                NextCPToPlay = currentCp + Math::Rand(2, 5); // next in 2-4 CPs
-                return true;
-            }
-            return false;
+        if (currentCp == NextCPToPlay) {
+            NextCPToPlay = currentCp + Math::Rand(2, 5); // next in 2-4 CPs
+            return true;
         }
+        return false;
     }
 }
