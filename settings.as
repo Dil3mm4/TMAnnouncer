@@ -28,7 +28,7 @@ bool S_LapsEnabled = true;
 [Setting category="Features" name="Enable Medal Sounds"]
 bool S_MedalsEnabled = true;
 
-[Setting category="Custom Sounds" name="Enable Custom Sounds"]
+[Setting category="Custom Sounds" name="Enable Custom Sounds" description="Load sounds from PluginStorage/TMTurboAnnouncer/CustomSounds/ instead of built-in assets. Folders: carhit/, checkpoint/, checkpoint-yes/, checkpoint-no/, lap/ (use 'final' in filename for final lap), medal/ (use author/gold/silver/bronze in filename). If a folder is empty, no sound will play for that category."]
 bool S_CustomSoundsEnabled = false;
 
 // Define DebugLog here so all files can see it

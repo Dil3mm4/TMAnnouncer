@@ -22,6 +22,25 @@ void UpdateVolume() {
     if (SoundVolumeValue < 0.01) SoundVolumeValue = 0.01;
 }
 
+// Create custom sounds folder structure if it doesn't exist
+void EnsureCustomFoldersExist() {
+    if (!IO::FolderExists(CustomSoundsPath))
+        IO::CreateFolder(CustomSoundsPath);
+    if (!IO::FolderExists(CustomSoundsPath + CUSTOM_FOLDER_CARHIT))
+        IO::CreateFolder(CustomSoundsPath + CUSTOM_FOLDER_CARHIT);
+    if (!IO::FolderExists(CustomSoundsPath + CUSTOM_FOLDER_CHECKPOINT))
+        IO::CreateFolder(CustomSoundsPath + CUSTOM_FOLDER_CHECKPOINT);
+    if (!IO::FolderExists(CustomSoundsPath + CUSTOM_FOLDER_CHECKPOINT_YES))
+        IO::CreateFolder(CustomSoundsPath + CUSTOM_FOLDER_CHECKPOINT_YES);
+    if (!IO::FolderExists(CustomSoundsPath + CUSTOM_FOLDER_CHECKPOINT_NO))
+        IO::CreateFolder(CustomSoundsPath + CUSTOM_FOLDER_CHECKPOINT_NO);
+    if (!IO::FolderExists(CustomSoundsPath + CUSTOM_FOLDER_LAP))
+        IO::CreateFolder(CustomSoundsPath + CUSTOM_FOLDER_LAP);
+    if (!IO::FolderExists(CustomSoundsPath + CUSTOM_FOLDER_MEDAL))
+        IO::CreateFolder(CustomSoundsPath + CUSTOM_FOLDER_MEDAL);
+    DebugLog("Custom folders structure ensured at: " + CustomSoundsPath);
+}
+
 // Load .wav files from a custom folder using absolute paths
 array<Audio::Sample@> LoadCustomFolder(const string &in folderName) {
     array<Audio::Sample@> samples;
@@ -139,8 +158,9 @@ void LoadDefaultSamples() {
 void LoadSamples() {
     DebugLog("Loading audio assets...");
 
-    // Initialize custom sounds path
+    // Initialize custom sounds path and create folder structure
     CustomSoundsPath = IO::FromStorageFolder("CustomSounds/");
+    EnsureCustomFoldersExist();
 
     if (S_CustomSoundsEnabled) {
         // Custom mode: load ONLY from custom folders, no fallback
