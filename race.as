@@ -10,6 +10,7 @@ namespace RaceLogic {
     uint LapsTotal = 1;
     uint CPsPerLap = 0;
     uint CPsToFinishTotal = 0;
+    int NextCPToPlay = 0;
 
     const array<uint>@ GetActualPBCheckpoints() {
         auto ghostData = MLFeed::GetGhostData();
@@ -58,6 +59,7 @@ namespace RaceLogic {
             LastCPCount = 0;
             IsRunning = true;
             LastTickSpeed = 0;
+            NextCPToPlay = 1;
             DebugLog("RACE START");
             return;
         }
@@ -73,19 +75,24 @@ namespace RaceLogic {
                 int lapsRemaining = int(LapsTotal) - (currentCp / int(CPsPerLap));
                 PlayLap(lapsRemaining, (lapsRemaining == 1));
             } else {
-                auto pbCheckpoints = GetActualPBCheckpoints();
-                bool soundPlayed = false;
-                int ghostIdx = currentCp - 1;
+                // Checkpoint sound logic with intervals
+                bool shouldPlaySound = ShouldPlayCPSound(currentCp, int(CPsToFinishTotal));
 
-                if (pbCheckpoints !is null && ghostIdx >= 0 && ghostIdx < int(pbCheckpoints.Length)) {
-                    uint pbTime = pbCheckpoints[ghostIdx];
-                    if (pbTime > 0) {
-                        bool faster = uint(mlPlayer.lastCpTime) <= pbTime;
-                        PlaySplit(faster);
-                        soundPlayed = true;
+                if (shouldPlaySound) {
+                    auto pbCheckpoints = GetActualPBCheckpoints();
+                    bool soundPlayed = false;
+                    int ghostIdx = currentCp - 1;
+
+                    if (pbCheckpoints !is null && ghostIdx >= 0 && ghostIdx < int(pbCheckpoints.Length)) {
+                        uint pbTime = pbCheckpoints[ghostIdx];
+                        if (pbTime > 0) {
+                            bool faster = uint(mlPlayer.lastCpTime) <= pbTime;
+                            PlaySplit(faster);
+                            soundPlayed = true;
+                        }
                     }
+                    if (!soundPlayed) PlayGenericCP();
                 }
-                if (!soundPlayed) PlayGenericCP();
             }
             LastCPCount = currentCp;
         }
@@ -118,6 +125,34 @@ namespace RaceLogic {
         IsRunning = false;
         LastStartTime = -1;
         LastCPCount = 0;
+        NextCPToPlay = 0;
         @LocalNativePlayer = null;
+    }
+
+    // CP sound interval logic:
+    // - 2 CPs (0,1): play only on first (CP 1)
+    // - 3 CPs (0,1,2): play on first (CP 1), 33% chance on second (CP 2)
+    // - 4+ CPs: play every 2-4 CPs interval
+    bool ShouldPlayCPSound(int currentCp, int totalCPs) {
+        if (S_CheckpointsAlways) return true;
+
+        int numCPs = totalCPs; // CPs before finish
+
+        if (numCPs <= 2) {
+            // Only play on first CP
+            return currentCp == 1;
+        } else if (numCPs == 3) {
+            // Play on first, 33% on second
+            if (currentCp == 1) return true;
+            if (currentCp == 2) return Math::Rand(0, 3) == 0;
+            return false;
+        } else {
+            // 4+ CPs: interval logic
+            if (currentCp >= NextCPToPlay) {
+                NextCPToPlay = currentCp + Math::Rand(2, 5); // next in 2-4 CPs
+                return true;
+            }
+            return false;
+        }
     }
 }

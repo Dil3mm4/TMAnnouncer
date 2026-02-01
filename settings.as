@@ -19,6 +19,9 @@ bool S_CarhitEnabled = true;
 [Setting category="Features" name="Enable Checkpoint Sounds"]
 bool S_CheckpointsEnabled = true;
 
+[Setting category="Features" name="Always Play on Every Checkpoint"]
+bool S_CheckpointsAlways = false;
+
 [Setting category="Features" name="Enable Lap Sounds"]
 bool S_LapsEnabled = true;
 
