@@ -28,6 +28,9 @@ bool S_LapsEnabled = true;
 [Setting category="Features" name="Enable Medal Sounds"]
 bool S_MedalsEnabled = true;
 
+[Setting category="Custom Sounds" name="Enable Custom Sounds"]
+bool S_CustomSoundsEnabled = false;
+
 // Define DebugLog here so all files can see it
 void DebugLog(const string &in msg) {
     if (S_DebugMode) {

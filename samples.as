@@ -10,6 +10,7 @@ Audio::Sample@ MedalSilverSample;
 Audio::Sample@ MedalBronzeSample;
 
 float SoundVolumeValue = 1.0f;
+string CustomSoundsPath = "";
 
 void UpdateVolume() {
     float master = 1.0f;
@@ -21,9 +22,92 @@ void UpdateVolume() {
     if (SoundVolumeValue < 0.01) SoundVolumeValue = 0.01;
 }
 
-void LoadSamples() {
-    DebugLog("Loading internal audio assets...");
+// Load .wav files from a custom folder using absolute paths
+array<Audio::Sample@> LoadCustomFolder(const string &in folderName) {
+    array<Audio::Sample@> samples;
+    string folderPath = CustomSoundsPath + folderName + "/";
 
+    if (!IO::FolderExists(folderPath)) {
+        DebugLog("Custom folder not found: " + folderName);
+        return samples;
+    }
+
+    auto files = IO::IndexFolder(folderPath, false);
+    for (uint i = 0; i < files.Length; i++) {
+        string file = files[i];
+        if (file.ToLower().EndsWith(".wav")) {
+            auto sample = Audio::LoadSampleFromAbsolutePath(folderPath + file);
+            if (sample !is null) {
+                samples.InsertLast(sample);
+                DebugLog("Loaded custom: " + folderName + "/" + file);
+            }
+        }
+    }
+
+    DebugLog("Custom " + folderName + ": " + samples.Length + " files");
+    return samples;
+}
+
+// Load medal samples from custom folder with pattern matching
+void LoadCustomMedals() {
+    string folderPath = CustomSoundsPath + CUSTOM_FOLDER_MEDAL + "/";
+
+    if (!IO::FolderExists(folderPath)) return;
+
+    auto files = IO::IndexFolder(folderPath, false);
+    for (uint i = 0; i < files.Length; i++) {
+        string file = files[i];
+        string fileLower = file.ToLower();
+        if (!fileLower.EndsWith(".wav")) continue;
+
+        string fullPath = folderPath + file;
+        if (fileLower.Contains("author")) {
+            @MedalAuthorSample = Audio::LoadSampleFromAbsolutePath(fullPath);
+            DebugLog("Custom medal author: " + file);
+        } else if (fileLower.Contains("gold")) {
+            @MedalGoldSample = Audio::LoadSampleFromAbsolutePath(fullPath);
+            DebugLog("Custom medal gold: " + file);
+        } else if (fileLower.Contains("silver")) {
+            @MedalSilverSample = Audio::LoadSampleFromAbsolutePath(fullPath);
+            DebugLog("Custom medal silver: " + file);
+        } else if (fileLower.Contains("bronze")) {
+            @MedalBronzeSample = Audio::LoadSampleFromAbsolutePath(fullPath);
+            DebugLog("Custom medal bronze: " + file);
+        }
+    }
+}
+
+// Load lap samples from custom folder
+void LoadCustomLaps() {
+    string folderPath = CustomSoundsPath + CUSTOM_FOLDER_LAP + "/";
+
+    if (!IO::FolderExists(folderPath)) return;
+
+    auto files = IO::IndexFolder(folderPath, false);
+    LapNumberedSamples.Resize(0);
+
+    for (uint i = 0; i < files.Length; i++) {
+        string file = files[i];
+        string fileLower = file.ToLower();
+        if (!fileLower.EndsWith(".wav")) continue;
+
+        string fullPath = folderPath + file;
+        if (fileLower.Contains("final")) {
+            @LapFinalSample = Audio::LoadSampleFromAbsolutePath(fullPath);
+            DebugLog("Custom lap final: " + file);
+        } else {
+            // Any other lap sound goes to numbered array
+            auto sample = Audio::LoadSampleFromAbsolutePath(fullPath);
+            if (sample !is null) {
+                LapNumberedSamples.InsertLast(sample);
+                DebugLog("Custom lap: " + file);
+            }
+        }
+    }
+}
+
+// Load default samples from plugin assets
+void LoadDefaultSamples() {
     CarhitSamples.Resize(COUNT_CARHIT);
     for (int i = 1; i <= COUNT_CARHIT; i++)
         @CarhitSamples[i - 1] = Audio::LoadSample(ASSETS_PATH + VOICE_CARHIT + i + FILE_EXT);
@@ -50,8 +134,43 @@ void LoadSamples() {
     @MedalGoldSample = Audio::LoadSample(ASSETS_PATH + VOICE_MEDAL_GOLD + FILE_EXT);
     @MedalSilverSample = Audio::LoadSample(ASSETS_PATH + VOICE_MEDAL_SILVER + FILE_EXT);
     @MedalBronzeSample = Audio::LoadSample(ASSETS_PATH + VOICE_MEDAL_BRONZE + FILE_EXT);
+}
 
-    DebugLog("Assets loaded.");
+void LoadSamples() {
+    DebugLog("Loading audio assets...");
+
+    // Initialize custom sounds path
+    CustomSoundsPath = IO::FromStorageFolder("CustomSounds/");
+
+    if (S_CustomSoundsEnabled) {
+        // Custom mode: load ONLY from custom folders, no fallback
+        DebugLog("Custom sounds enabled. Loading from: " + CustomSoundsPath);
+
+        CarhitSamples = LoadCustomFolder(CUSTOM_FOLDER_CARHIT);
+        CPSamples = LoadCustomFolder(CUSTOM_FOLDER_CHECKPOINT);
+        CPYesSamples = LoadCustomFolder(CUSTOM_FOLDER_CHECKPOINT_YES);
+        CPNoSamples = LoadCustomFolder(CUSTOM_FOLDER_CHECKPOINT_NO);
+
+        // Laps
+        LapNumberedSamples.Resize(0);
+        @LapFinalSample = null;
+        LoadCustomLaps();
+
+        // Medals
+        @MedalAuthorSample = null;
+        @MedalGoldSample = null;
+        @MedalSilverSample = null;
+        @MedalBronzeSample = null;
+        LoadCustomMedals();
+
+        DebugLog("Custom assets loaded.");
+    } else {
+        // Default mode: load built-in assets
+        LoadDefaultSamples();
+        DebugLog("Default assets loaded.");
+    }
+
+    DebugLog("All assets loaded.");
 }
 
 void PlayRandom(array<Audio::Sample@>@ samples, const string &in category) {
@@ -76,9 +195,23 @@ void PlayLap(int remaining, bool isFinal) {
     if (!S_LapsEnabled) return;
     UpdateVolume();
     if (isFinal) {
-        if (LapFinalSample !is null) Audio::Play(LapFinalSample, SoundVolumeValue);
-    } else if (remaining >= 2 && remaining <= COUNT_LAP_NUMBERED) {
-        if (LapNumberedSamples[remaining] !is null) Audio::Play(LapNumberedSamples[remaining], SoundVolumeValue);
+        if (LapFinalSample !is null) {
+            DebugLog("ACTION: Playing Final Lap");
+            Audio::Play(LapFinalSample, SoundVolumeValue);
+        }
+    } else if (LapNumberedSamples.Length > 0) {
+        // For custom sounds: play random from available lap sounds
+        // For default: use indexed access (remaining maps to index)
+        if (S_CustomSoundsEnabled && LapNumberedSamples.Length > 0) {
+            int idx = Math::Rand(0, int(LapNumberedSamples.Length));
+            if (LapNumberedSamples[idx] !is null) {
+                DebugLog("ACTION: Playing Lap (custom)");
+                Audio::Play(LapNumberedSamples[idx], SoundVolumeValue);
+            }
+        } else if (remaining >= 2 && remaining < int(LapNumberedSamples.Length) && LapNumberedSamples[remaining] !is null) {
+            DebugLog("ACTION: Playing Lap " + remaining);
+            Audio::Play(LapNumberedSamples[remaining], SoundVolumeValue);
+        }
     }
 }
 

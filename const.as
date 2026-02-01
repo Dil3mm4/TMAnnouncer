@@ -20,3 +20,11 @@ const int COUNT_CP_GENERIC = 4;
 const int COUNT_CP_NO = 38;
 const int COUNT_CP_YES = 23;
 const int COUNT_LAP_NUMBERED = 5;
+
+// Custom sound folder names
+const string CUSTOM_FOLDER_CARHIT = "carhit";
+const string CUSTOM_FOLDER_CHECKPOINT = "checkpoint";
+const string CUSTOM_FOLDER_CHECKPOINT_YES = "checkpoint-yes";
+const string CUSTOM_FOLDER_CHECKPOINT_NO = "checkpoint-no";
+const string CUSTOM_FOLDER_LAP = "lap";
+const string CUSTOM_FOLDER_MEDAL = "medal";
