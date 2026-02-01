@@ -5,3 +5,5 @@ category = "Race"
 version = "1.0.3"
 siteid = 182
 
+[script]
+dependencies = ["MLFeedRaceData"]
