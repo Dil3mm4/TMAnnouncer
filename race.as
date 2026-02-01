@@ -78,6 +78,7 @@ namespace RaceLogic {
             IsRunning = true;
             LastTickSpeed = 0;
             NextCPToPlay = 1;
+            @LocalNativePlayer = null; // Reset to get fresh reference
             DebugLog("RACE START");
             return;
         }
