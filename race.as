@@ -94,9 +94,9 @@ namespace RaceLogic {
                 // Only play if we earned a NEW (better) medal
                 if (medal > BestMedalEarned) {
                     BestMedalEarned = medal;
-                    PlayMedal(medal);
-                } else {
-                    PlayLap(0, true);
+                    if (medal > 0) {
+                        PlayMedal(medal);
+                    }
                 }
                 IsRunning = false;
             } else if (LapsTotal > 1 && (currentCp % int(CPsPerLap) == 0)) {
