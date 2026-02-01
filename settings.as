@@ -11,7 +11,7 @@ float S_SoundMultiplier = 0.5;
 float S_CarhitSensitivity = 0.6;
 
 [Setting category="Advanced" name="Debug Mode"]
-bool S_DebugMode = true; 
+bool S_DebugMode = false;
 
 [Setting category="Features" name="Enable Crash Sounds"]
 bool S_CarhitEnabled = true;

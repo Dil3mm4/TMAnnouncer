@@ -25,7 +25,7 @@ namespace RaceLogic {
     void CheckTriggers() {
         auto app = GetApp();
         auto playground = cast<CSmArenaClient@>(app.CurrentPlayground);
-        
+
         if (playground is null || playground.GameTerminals.Length == 0 || playground.Map is null) {
             if (IsRunning) FullReset();
             return;
@@ -57,7 +57,7 @@ namespace RaceLogic {
             else CPsPerLap = CPsToFinishTotal;
 
             LastCPCount = 0;
-            IsRunning = true; 
+            IsRunning = true;
             LastTickSpeed = 0;
             DebugLog("RACE START");
             return;
@@ -68,15 +68,15 @@ namespace RaceLogic {
         if (mlPlayer.CpCount > LastCPCount) {
             int currentCp = mlPlayer.CpCount;
             if (currentCp == int(CPsToFinishTotal)) {
-                PlayLap(0, true); 
-                IsRunning = false; 
+                PlayLap(0, true);
+                IsRunning = false;
             } else if (LapsTotal > 1 && (currentCp % int(CPsPerLap) == 0)) {
                 int lapsRemaining = int(LapsTotal) - (currentCp / int(CPsPerLap));
                 PlayLap(lapsRemaining, (lapsRemaining == 1));
             } else {
                 auto pbCheckpoints = GetActualPBCheckpoints();
                 bool soundPlayed = false;
-                int ghostIdx = currentCp - 1; 
+                int ghostIdx = currentCp - 1;
 
                 if (pbCheckpoints !is null && ghostIdx >= 0 && ghostIdx < int(pbCheckpoints.Length)) {
                     uint pbTime = pbCheckpoints[ghostIdx];
@@ -85,7 +85,7 @@ namespace RaceLogic {
                         PlaySplit(faster);
                         soundPlayed = true;
                     }
-                } 
+                }
                 if (!soundPlayed) PlayGenericCP();
             }
             LastCPCount = currentCp;

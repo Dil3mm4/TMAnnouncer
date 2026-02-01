@@ -1,12 +1,14 @@
-// File Names
-const string Path = "Assets/Voices/";
-const string FileExt = ".wav";
-const string VoiceCarhit = "voice-carhit-";
-const string VoiceCheckpoint = "voice-checkpoint-";
-const string VoiceCheckpointNo = "voice-checkpoint-no-";
-const string VoiceCheckpointYes = "voice-checkpoint-yes-";
-const string VoiceLap = "voice-lap-";
-const string VoiceLapFinal = "voice-lap-final";
+// File paths
+const string ASSETS_PATH = "Assets/Voices/";
+const string FILE_EXT = ".wav";
+
+// Voice file prefixes
+const string VOICE_CARHIT = "voice-carhit-";
+const string VOICE_CHECKPOINT = "voice-checkpoint-";
+const string VOICE_CHECKPOINT_NO = "voice-checkpoint-no-";
+const string VOICE_CHECKPOINT_YES = "voice-checkpoint-yes-";
+const string VOICE_LAP = "voice-lap-";
+const string VOICE_LAP_FINAL = "voice-lap-final";
 
 // Sample counts
 const int COUNT_CARHIT = 16;

@@ -21,23 +21,27 @@ void LoadSamples() {
     DebugLog("Loading internal audio assets...");
 
     CarhitSamples.Resize(COUNT_CARHIT);
-    for (int i = 1; i <= COUNT_CARHIT; i++) @CarhitSamples[i-1] = Audio::LoadSample(Path + VoiceCarhit + i + FileExt);
+    for (int i = 1; i <= COUNT_CARHIT; i++)
+        @CarhitSamples[i - 1] = Audio::LoadSample(ASSETS_PATH + VOICE_CARHIT + i + FILE_EXT);
 
     CPSamples.Resize(COUNT_CP_GENERIC);
-    for (int i = 1; i <= COUNT_CP_GENERIC; i++) @CPSamples[i-1] = Audio::LoadSample(Path + VoiceCheckpoint + i + FileExt);
+    for (int i = 1; i <= COUNT_CP_GENERIC; i++)
+        @CPSamples[i - 1] = Audio::LoadSample(ASSETS_PATH + VOICE_CHECKPOINT + i + FILE_EXT);
 
     CPNoSamples.Resize(COUNT_CP_NO);
-    for (int i = 1; i <= COUNT_CP_NO; i++) @CPNoSamples[i-1] = Audio::LoadSample(Path + VoiceCheckpointNo + i + FileExt);
+    for (int i = 1; i <= COUNT_CP_NO; i++)
+        @CPNoSamples[i - 1] = Audio::LoadSample(ASSETS_PATH + VOICE_CHECKPOINT_NO + i + FILE_EXT);
 
     CPYesSamples.Resize(COUNT_CP_YES);
-    for (int i = 1; i <= COUNT_CP_YES; i++) @CPYesSamples[i-1] = Audio::LoadSample(Path + VoiceCheckpointYes + i + FileExt);
+    for (int i = 1; i <= COUNT_CP_YES; i++)
+        @CPYesSamples[i - 1] = Audio::LoadSample(ASSETS_PATH + VOICE_CHECKPOINT_YES + i + FILE_EXT);
 
-    @LapFinalSample = Audio::LoadSample(Path + VoiceLapFinal + FileExt);
+    @LapFinalSample = Audio::LoadSample(ASSETS_PATH + VOICE_LAP_FINAL + FILE_EXT);
 
     LapNumberedSamples.Resize(COUNT_LAP_NUMBERED + 1);
-    for (int i = 2; i <= COUNT_LAP_NUMBERED; i++) {
-        @LapNumberedSamples[i] = Audio::LoadSample(Path + VoiceLap + i + FileExt);
-    }
+    for (int i = 2; i <= COUNT_LAP_NUMBERED; i++)
+        @LapNumberedSamples[i] = Audio::LoadSample(ASSETS_PATH + VOICE_LAP + i + FILE_EXT);
+
     DebugLog("Assets loaded.");
 }
 
