@@ -12,12 +12,17 @@ namespace RaceLogic {
     uint CPsToFinishTotal = 0;
     int NextCPToPlay = 0;
 
+    // Checks if ghost nickname is a game-generated ghost (PB, medals, etc.)
+    bool IsGameGhost(const string &in nick) {
+        return nick.StartsWith("") || nick.StartsWith("$7FA") || nick.StartsWith("$FD8") || nick.StartsWith("$5D8");
+    }
+
     const array<uint>@ GetActualPBCheckpoints() {
         auto ghostData = MLFeed::GetGhostData();
         if (ghostData is null) return null;
         for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
             auto ghost = ghostData.Ghosts_V2[i];
-            if (ghost.IsPersonalBest) return ghost.Checkpoints;
+            if (ghost.IsPersonalBest || IsGameGhost(ghost.Nickname)) return ghost.Checkpoints;
         }
         return null;
     }
