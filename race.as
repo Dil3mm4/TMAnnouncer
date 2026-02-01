@@ -16,8 +16,7 @@ namespace RaceLogic {
         if (ghostData is null) return null;
         for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
             auto ghost = ghostData.Ghosts_V2[i];
-            bool isPB = ghost.IsPersonalBest || ghost.Nickname == "Record personale" || ghost.Nickname == "Personal Best";
-            if (isPB) return ghost.Checkpoints;
+            if (ghost.IsPersonalBest) return ghost.Checkpoints;
         }
         return null;
     }
