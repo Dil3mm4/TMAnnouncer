@@ -1,93 +1,70 @@
-array<Audio::Sample@> CarhitSamples(VHitCount);
-array<Audio::Sample@> CPSamples(VCPCount);
-array<Audio::Sample@> CPYesSamples(VCPYesCount);
-array<Audio::Sample@> CPNoSamples(VCPNoCount);
-array<Audio::Sample@> LapSamples(VLapCount);
-float SoundVolume;
+array<Audio::Sample@> CarhitSamples;
+array<Audio::Sample@> CPSamples;
+array<Audio::Sample@> CPNoSamples;
+array<Audio::Sample@> CPYesSamples;
+array<Audio::Sample@> LapNumberedSamples; 
+Audio::Sample@ LapFinalSample;
 
-
-void LoadSamples() {
-    // Carhit
-    for (int i = 1; i <= VHitCount; i++) {
-        @CarhitSamples[i - 1] = Audio::LoadSample(Path + VoiceCarhit + tostring(i) + FileExt);
-    }
-
-    // Checkpoint
-    for (int i = 1; i <= VCPCount; i++) {
-        @CPSamples[i - 1] = Audio::LoadSample(Path + VoiceCheckpoint + tostring(i) + FileExt);
-    }
-
-    // CP Yes
-    for (int i = 1; i <= VCPYesCount; i++) {
-        @CPYesSamples[i - 1] = Audio::LoadSample(Path + VoiceCheckpointYes + tostring(i) + FileExt);
-    }
-
-    // CP No
-    for (int i = 1; i <= VCPNoCount; i++) {
-        @CPNoSamples[i - 1] = Audio::LoadSample(Path + VoiceCheckpointNo + tostring(i) + FileExt);
-    }
-
-    // Laps
-    @LapSamples[0] = Audio::LoadSample(Path + VoiceLap + "final" + FileExt);
-    for (int i = 2; i <= VLapCount; i++) {
-        @LapSamples[i - 1] = Audio::LoadSample(Path + VoiceLap + tostring(i) + FileExt);
-    }
-}
-
-void PlayCarhit() {
-    if (!S_CarhitEnabled) return;
-    sleep(DelayCarhitVoice);
-    UpdateVolume();
-    int Index = Math::Rand(0, VHitCount);
-    Audio::Play(CarhitSamples[Index], SoundVolume);
-}
-
-void PlayCheckpoint() {
-    if (!S_CheckpointsEnabled) return;
-    sleep(DelayCheckpointVoice);
-    UpdateVolume();
-    int Index = Math::Rand(0, VCPCount);
-    Audio::Play(CPSamples[Index], SoundVolume);
-}
-
-void PlayCheckpointYes() {
-    if (!S_CheckpointsEnabled) return;
-    sleep(DelayCheckpointVoice);
-    UpdateVolume();
-    int Index = Math::Rand(0, VCPYesCount);
-    Audio::Play(CPYesSamples[Index], SoundVolume);
-}
-
-void PlayCheckpointNo() {
-    if (!S_CheckpointsEnabled) return;
-    sleep(DelayCheckpointVoice);
-    UpdateVolume();
-    int Index = Math::Rand(0, VCPNoCount);
-    Audio::Play(CPNoSamples[Index], SoundVolume);
-}
-
-void PlayLap(int LapsRemaining, bool IsRaceStart) {
-    if (!S_LapsEnabled) return;
-    if (IsRaceStart) {
-        sleep(DelayLapsVoice);
-    }
-    UpdateVolume();
-    Audio::Play(LapSamples[LapsRemaining - 1], SoundVolume);
-}
+float SoundVolumeValue = 1.0f;
 
 void UpdateVolume() {
-    auto MasterSound = GetApp().SystemOverlay.MasterSoundVolume;
-
-    // Sound volume ranges from -40 to 0
-    // It can also be -100 at 0%
-    // Update: this is measured in dB
-    if (MasterSound <= -100.0) {
-        MasterSound = -40.0;
+    float master = 1.0f;
+    auto app = GetApp();
+    if (S_IngameSound && app.AudioPort !is null) {
+        master = app.AudioPort.SoundVolume; 
     }
+    SoundVolumeValue = master * S_SoundMultiplier * (float(S_VoiceVolume) / 100.0f);
+    if (SoundVolumeValue < 0.01) SoundVolumeValue = 0.01; 
+}
 
-    if (!S_IngameSound) {
-        MasterSound = 0.0;
+void LoadSamples() {
+    DebugLog("Loading internal audio assets...");
+    
+    CarhitSamples.Resize(COUNT_CARHIT);
+    for (int i = 1; i <= COUNT_CARHIT; i++) @CarhitSamples[i-1] = Audio::LoadSample(Path + "voice-carhit-" + i + FileExt);
+
+    CPSamples.Resize(COUNT_CP_GENERIC);
+    for (int i = 1; i <= COUNT_CP_GENERIC; i++) @CPSamples[i-1] = Audio::LoadSample(Path + "voice-checkpoint-" + i + FileExt);
+
+    CPNoSamples.Resize(COUNT_CP_NO);
+    for (int i = 1; i <= COUNT_CP_NO; i++) @CPNoSamples[i-1] = Audio::LoadSample(Path + "voice-checkpoint-no-" + i + FileExt);
+
+    CPYesSamples.Resize(COUNT_CP_YES);
+    for (int i = 1; i <= COUNT_CP_YES; i++) @CPYesSamples[i-1] = Audio::LoadSample(Path + "voice-checkpoint-yes-" + i + FileExt);
+
+    @LapFinalSample = Audio::LoadSample(Path + "voice-lap-final" + FileExt);
+
+    LapNumberedSamples.Resize(COUNT_LAP_NUMBERED + 1); 
+    for (int i = 2; i <= COUNT_LAP_NUMBERED; i++) {
+        @LapNumberedSamples[i] = Audio::LoadSample(Path + "voice-lap-" + i + FileExt);
     }
+    DebugLog("Assets loaded.");
+}
 
-    SoundVolume = (40.0 + MasterSound) / 40 * S_SoundMultiplier * (S_VoiceVolume / 100.0);
+void PlayRandom(array<Audio::Sample@>@ samples, const string &in category) {
+    UpdateVolume();
+    if (samples.Length == 0) return;
+    int idx = Math::Rand(0, int(samples.Length));
+    if (samples[idx] !is null) {
+        DebugLog("ACTION: Playing " + category);
+        Audio::Play(samples[idx], SoundVolumeValue);
+    }
+}
+
+void PlayCarhit() { if (S_CarhitEnabled) PlayRandom(CarhitSamples, "Crash"); }
+void PlayGenericCP() { if (S_CheckpointsEnabled) PlayRandom(CPSamples, "Generic CP"); }
+
+void PlaySplit(bool faster) {
+    if (!S_CheckpointsEnabled) return;
+    PlayRandom(faster ? CPYesSamples : CPNoSamples, faster ? "Faster Split" : "Slower Split");
+}
+
+void PlayLap(int remaining, bool isFinal) {
+    if (!S_LapsEnabled) return;
+    UpdateVolume();
+    if (isFinal) {
+        if (LapFinalSample !is null) Audio::Play(LapFinalSample, SoundVolumeValue);
+    } else if (remaining >= 2 && remaining <= COUNT_LAP_NUMBERED) {
+        if (LapNumberedSamples[remaining] !is null) Audio::Play(LapNumberedSamples[remaining], SoundVolumeValue);
+    }
 }
