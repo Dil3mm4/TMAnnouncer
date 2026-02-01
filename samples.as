@@ -13,13 +13,24 @@ float SoundVolumeValue = 1.0f;
 string CustomSoundsPath = "";
 
 void UpdateVolume() {
-    float master = 1.0f;
+    // Start with plugin master volume (0-100 -> 0.0-1.0)
+    float volume = float(S_VoiceVolume) / 100.0f;
+
+    // Optionally scale with in-game volume
     auto app = GetApp();
     if (S_IngameSound && app.AudioPort !is null) {
-        master = app.AudioPort.SoundVolume;
+        volume *= app.AudioPort.SoundVolume;
     }
-    SoundVolumeValue = master * S_SoundMultiplier * (float(S_VoiceVolume) / 100.0f);
-    if (SoundVolumeValue < 0.01) SoundVolumeValue = 0.01;
+
+    // Apply gain multiplier for fine-tuning
+    volume *= S_SoundMultiplier;
+
+    // Clamp to valid range
+    if (volume < 0.01f) volume = 0.01f;
+    if (volume > 2.0f) volume = 2.0f;
+
+    SoundVolumeValue = volume;
+    DebugLog("Volume: " + SoundVolumeValue + " (Master:" + S_VoiceVolume + "%, Gain:" + S_SoundMultiplier + ")");
 }
 
 // Create custom sounds folder structure if it doesn't exist
@@ -53,12 +64,12 @@ array<Audio::Sample@> LoadCustomFolder(const string &in folderName) {
 
     auto files = IO::IndexFolder(folderPath, false);
     for (uint i = 0; i < files.Length; i++) {
-        string file = files[i];
-        if (file.ToLower().EndsWith(".wav")) {
-            auto sample = Audio::LoadSampleFromAbsolutePath(folderPath + file);
+        string fullPath = files[i]; // IndexFolder returns full absolute paths
+        if (fullPath.ToLower().EndsWith(".wav")) {
+            auto sample = Audio::LoadSampleFromAbsolutePath(fullPath);
             if (sample !is null) {
                 samples.InsertLast(sample);
-                DebugLog("Loaded custom: " + folderName + "/" + file);
+                DebugLog("Loaded custom: " + fullPath);
             }
         }
     }
@@ -75,23 +86,22 @@ void LoadCustomMedals() {
 
     auto files = IO::IndexFolder(folderPath, false);
     for (uint i = 0; i < files.Length; i++) {
-        string file = files[i];
-        string fileLower = file.ToLower();
+        string fullPath = files[i]; // IndexFolder returns full absolute paths
+        string fileLower = fullPath.ToLower();
         if (!fileLower.EndsWith(".wav")) continue;
 
-        string fullPath = folderPath + file;
         if (fileLower.Contains("author")) {
             @MedalAuthorSample = Audio::LoadSampleFromAbsolutePath(fullPath);
-            DebugLog("Custom medal author: " + file);
+            DebugLog("Custom medal author: " + fullPath);
         } else if (fileLower.Contains("gold")) {
             @MedalGoldSample = Audio::LoadSampleFromAbsolutePath(fullPath);
-            DebugLog("Custom medal gold: " + file);
+            DebugLog("Custom medal gold: " + fullPath);
         } else if (fileLower.Contains("silver")) {
             @MedalSilverSample = Audio::LoadSampleFromAbsolutePath(fullPath);
-            DebugLog("Custom medal silver: " + file);
+            DebugLog("Custom medal silver: " + fullPath);
         } else if (fileLower.Contains("bronze")) {
             @MedalBronzeSample = Audio::LoadSampleFromAbsolutePath(fullPath);
-            DebugLog("Custom medal bronze: " + file);
+            DebugLog("Custom medal bronze: " + fullPath);
         }
     }
 }
@@ -106,20 +116,19 @@ void LoadCustomLaps() {
     LapNumberedSamples.Resize(0);
 
     for (uint i = 0; i < files.Length; i++) {
-        string file = files[i];
-        string fileLower = file.ToLower();
+        string fullPath = files[i]; // IndexFolder returns full absolute paths
+        string fileLower = fullPath.ToLower();
         if (!fileLower.EndsWith(".wav")) continue;
 
-        string fullPath = folderPath + file;
         if (fileLower.Contains("final")) {
             @LapFinalSample = Audio::LoadSampleFromAbsolutePath(fullPath);
-            DebugLog("Custom lap final: " + file);
+            DebugLog("Custom lap final: " + fullPath);
         } else {
             // Any other lap sound goes to numbered array
             auto sample = Audio::LoadSampleFromAbsolutePath(fullPath);
             if (sample !is null) {
                 LapNumberedSamples.InsertLast(sample);
-                DebugLog("Custom lap: " + file);
+                DebugLog("Custom lap: " + fullPath);
             }
         }
     }
