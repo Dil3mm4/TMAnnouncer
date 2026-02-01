@@ -2,7 +2,7 @@ array<Audio::Sample@> CarhitSamples;
 array<Audio::Sample@> CPSamples;
 array<Audio::Sample@> CPNoSamples;
 array<Audio::Sample@> CPYesSamples;
-array<Audio::Sample@> LapNumberedSamples; 
+array<Audio::Sample@> LapNumberedSamples;
 Audio::Sample@ LapFinalSample;
 
 float SoundVolumeValue = 1.0f;
@@ -11,32 +11,32 @@ void UpdateVolume() {
     float master = 1.0f;
     auto app = GetApp();
     if (S_IngameSound && app.AudioPort !is null) {
-        master = app.AudioPort.SoundVolume; 
+        master = app.AudioPort.SoundVolume;
     }
     SoundVolumeValue = master * S_SoundMultiplier * (float(S_VoiceVolume) / 100.0f);
-    if (SoundVolumeValue < 0.01) SoundVolumeValue = 0.01; 
+    if (SoundVolumeValue < 0.01) SoundVolumeValue = 0.01;
 }
 
 void LoadSamples() {
     DebugLog("Loading internal audio assets...");
-    
+
     CarhitSamples.Resize(COUNT_CARHIT);
-    for (int i = 1; i <= COUNT_CARHIT; i++) @CarhitSamples[i-1] = Audio::LoadSample(Path + "voice-carhit-" + i + FileExt);
+    for (int i = 1; i <= COUNT_CARHIT; i++) @CarhitSamples[i-1] = Audio::LoadSample(Path + VoiceCarhit + i + FileExt);
 
     CPSamples.Resize(COUNT_CP_GENERIC);
-    for (int i = 1; i <= COUNT_CP_GENERIC; i++) @CPSamples[i-1] = Audio::LoadSample(Path + "voice-checkpoint-" + i + FileExt);
+    for (int i = 1; i <= COUNT_CP_GENERIC; i++) @CPSamples[i-1] = Audio::LoadSample(Path + VoiceCheckpoint + i + FileExt);
 
     CPNoSamples.Resize(COUNT_CP_NO);
-    for (int i = 1; i <= COUNT_CP_NO; i++) @CPNoSamples[i-1] = Audio::LoadSample(Path + "voice-checkpoint-no-" + i + FileExt);
+    for (int i = 1; i <= COUNT_CP_NO; i++) @CPNoSamples[i-1] = Audio::LoadSample(Path + VoiceCheckpointNo + i + FileExt);
 
     CPYesSamples.Resize(COUNT_CP_YES);
-    for (int i = 1; i <= COUNT_CP_YES; i++) @CPYesSamples[i-1] = Audio::LoadSample(Path + "voice-checkpoint-yes-" + i + FileExt);
+    for (int i = 1; i <= COUNT_CP_YES; i++) @CPYesSamples[i-1] = Audio::LoadSample(Path + VoiceCheckpointYes + i + FileExt);
 
-    @LapFinalSample = Audio::LoadSample(Path + "voice-lap-final" + FileExt);
+    @LapFinalSample = Audio::LoadSample(Path + VoiceLapFinal + FileExt);
 
-    LapNumberedSamples.Resize(COUNT_LAP_NUMBERED + 1); 
+    LapNumberedSamples.Resize(COUNT_LAP_NUMBERED + 1);
     for (int i = 2; i <= COUNT_LAP_NUMBERED; i++) {
-        @LapNumberedSamples[i] = Audio::LoadSample(Path + "voice-lap-" + i + FileExt);
+        @LapNumberedSamples[i] = Audio::LoadSample(Path + VoiceLap + i + FileExt);
     }
     DebugLog("Assets loaded.");
 }
