@@ -1,18 +1,8 @@
-// Trackmania Turbo Announcer plugin by TheGeekid
-
 void Main() {
-    Init();
-    
-    while (true) {
-        Update();
-        sleep(S_Heartbeat);
-    }
-}
-
-void Init() {
+    print("[RaceSound] INITIALIZING...");
     LoadSamples();
-}
-
-void Update() {
-    CheckTriggers();
+    while (true) {
+        RaceLogic::CheckTriggers();
+        yield();
+    }
 }
