@@ -9,6 +9,10 @@ const string VOICE_CHECKPOINT_NO = "voice-checkpoint-no-";
 const string VOICE_CHECKPOINT_YES = "voice-checkpoint-yes-";
 const string VOICE_LAP = "voice-lap-";
 const string VOICE_LAP_FINAL = "voice-lap-final";
+const string VOICE_MEDAL_AUTHOR = "voice-medal-author";
+const string VOICE_MEDAL_GOLD = "voice-medal-gold";
+const string VOICE_MEDAL_SILVER = "voice-medal-silver";
+const string VOICE_MEDAL_BRONZE = "voice-medal-bronze";
 
 // Sample counts
 const int COUNT_CARHIT = 16;

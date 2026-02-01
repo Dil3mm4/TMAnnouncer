@@ -12,6 +12,9 @@ namespace RaceLogic {
     uint CPsToFinishTotal = 0;
     int NextCPToPlay = 0;
 
+    // Medal tracking: 0=none, 1=bronze, 2=silver, 3=gold, 4=author
+    int BestMedalEarned = 0;
+
     // Checks if ghost nickname is a game-generated ghost (PB, medals, etc.)
     bool IsGameGhost(const string &in nick) {
         return nick.StartsWith("") || nick.StartsWith("$7FA") || nick.StartsWith("$FD8") || nick.StartsWith("$5D8");
@@ -25,6 +28,16 @@ namespace RaceLogic {
             if (ghost.IsPersonalBest || IsGameGhost(ghost.Nickname)) return ghost.Checkpoints;
         }
         return null;
+    }
+
+    // Returns the medal earned for a given time: 4=author, 3=gold, 2=silver, 1=bronze, 0=none
+    int GetMedalForTime(CGameCtnChallenge@ map, int finishTime) {
+        if (finishTime <= 0) return 0;
+        if (map.TMObjective_AuthorTime > 0 && finishTime <= map.TMObjective_AuthorTime) return 4;
+        if (map.TMObjective_GoldTime > 0 && finishTime <= map.TMObjective_GoldTime) return 3;
+        if (map.TMObjective_SilverTime > 0 && finishTime <= map.TMObjective_SilverTime) return 2;
+        if (map.TMObjective_BronzeTime > 0 && finishTime <= map.TMObjective_BronzeTime) return 1;
+        return 0;
     }
 
     void CheckTriggers() {
@@ -74,7 +87,17 @@ namespace RaceLogic {
         if (mlPlayer.CpCount > LastCPCount) {
             int currentCp = mlPlayer.CpCount;
             if (currentCp == int(CPsToFinishTotal)) {
-                PlayLap(0, true);
+                // Finish line reached
+                int finishTime = mlPlayer.lastCpTime;
+                int medal = GetMedalForTime(playground.Map, finishTime);
+
+                // Only play if we earned a NEW (better) medal
+                if (medal > BestMedalEarned) {
+                    BestMedalEarned = medal;
+                    PlayMedal(medal);
+                } else {
+                    PlayLap(0, true);
+                }
                 IsRunning = false;
             } else if (LapsTotal > 1 && (currentCp % int(CPsPerLap) == 0)) {
                 int lapsRemaining = int(LapsTotal) - (currentCp / int(CPsPerLap));
@@ -131,6 +154,7 @@ namespace RaceLogic {
         LastStartTime = -1;
         LastCPCount = 0;
         NextCPToPlay = 0;
+        BestMedalEarned = 0;
         @LocalNativePlayer = null;
     }
 

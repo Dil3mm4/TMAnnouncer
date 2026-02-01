@@ -4,6 +4,10 @@ array<Audio::Sample@> CPNoSamples;
 array<Audio::Sample@> CPYesSamples;
 array<Audio::Sample@> LapNumberedSamples;
 Audio::Sample@ LapFinalSample;
+Audio::Sample@ MedalAuthorSample;
+Audio::Sample@ MedalGoldSample;
+Audio::Sample@ MedalSilverSample;
+Audio::Sample@ MedalBronzeSample;
 
 float SoundVolumeValue = 1.0f;
 
@@ -42,6 +46,11 @@ void LoadSamples() {
     for (int i = 2; i <= COUNT_LAP_NUMBERED; i++)
         @LapNumberedSamples[i] = Audio::LoadSample(ASSETS_PATH + VOICE_LAP + i + FILE_EXT);
 
+    @MedalAuthorSample = Audio::LoadSample(ASSETS_PATH + VOICE_MEDAL_AUTHOR + FILE_EXT);
+    @MedalGoldSample = Audio::LoadSample(ASSETS_PATH + VOICE_MEDAL_GOLD + FILE_EXT);
+    @MedalSilverSample = Audio::LoadSample(ASSETS_PATH + VOICE_MEDAL_SILVER + FILE_EXT);
+    @MedalBronzeSample = Audio::LoadSample(ASSETS_PATH + VOICE_MEDAL_BRONZE + FILE_EXT);
+
     DebugLog("Assets loaded.");
 }
 
@@ -70,5 +79,23 @@ void PlayLap(int remaining, bool isFinal) {
         if (LapFinalSample !is null) Audio::Play(LapFinalSample, SoundVolumeValue);
     } else if (remaining >= 2 && remaining <= COUNT_LAP_NUMBERED) {
         if (LapNumberedSamples[remaining] !is null) Audio::Play(LapNumberedSamples[remaining], SoundVolumeValue);
+    }
+}
+
+// Medal enum: 0=none, 1=bronze, 2=silver, 3=gold, 4=author
+void PlayMedal(int medal) {
+    if (!S_MedalsEnabled) return;
+    UpdateVolume();
+    Audio::Sample@ sample = null;
+    string medalName = "";
+    switch (medal) {
+        case 4: @sample = MedalAuthorSample; medalName = "Author"; break;
+        case 3: @sample = MedalGoldSample; medalName = "Gold"; break;
+        case 2: @sample = MedalSilverSample; medalName = "Silver"; break;
+        case 1: @sample = MedalBronzeSample; medalName = "Bronze"; break;
+    }
+    if (sample !is null) {
+        DebugLog("ACTION: Playing Medal " + medalName);
+        Audio::Play(sample, SoundVolumeValue);
     }
 }

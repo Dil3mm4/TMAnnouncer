@@ -25,6 +25,9 @@ bool S_CheckpointsAlways = false;
 [Setting category="Features" name="Enable Lap Sounds"]
 bool S_LapsEnabled = true;
 
+[Setting category="Features" name="Enable Medal Sounds"]
+bool S_MedalsEnabled = true;
+
 // Define DebugLog here so all files can see it
 void DebugLog(const string &in msg) {
     if (S_DebugMode) {
