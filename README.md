@@ -34,9 +34,68 @@ An OpenPlanet plugin that adds voice announcements during races in Trackmania 20
 - **Crash Sensitivity** - How much speed loss triggers a crash sound (0.1-1.0)
 - **Debug Mode** - Print debug info to the OpenPlanet log
 
-## Custom Sounds
+## Sound Packs
 
-You can replace the built-in voice lines with your own `.wav` files.
+Sound packs are downloadable voice line collections that can be installed with one click.
+
+### Downloading Packs
+
+1. Go to **Settings → Sound Packs** tab
+2. Paste a pack URL (JSON manifest) in the input field
+3. Click **Download Pack**
+4. Wait for the download to complete
+5. Select the pack from the dropdown
+
+### How It Works
+
+- Packs are defined by a JSON manifest file hosted online
+- The plugin downloads individual `.wav` files from URLs specified in the manifest
+- Files are saved to `PluginStorage/TMTurboAnnouncer/CustomSounds/{PackName}/`
+- Downloads are rate-limited (3 concurrent downloads) to avoid server issues
+- If a server returns HTTP 429 (Too Many Requests), the plugin backs off with exponential delay
+
+### Creating a Sound Pack
+
+See [example_pack.json](example_pack.json) for the full specification. Basic structure:
+
+```json
+{
+    "packName": "MyVoicePack",
+    "author": "YourName",
+    "sounds": {
+        "carhit": {
+            "crash1.wav": "https://example.com/crash1.wav",
+            "crash2.wav": "https://example.com/crash2.wav"
+        },
+        "checkpoint": { ... },
+        "checkpoint-yes": { ... },
+        "checkpoint-no": { ... },
+        "lap": { ... },
+        "medal": { ... }
+    }
+}
+```
+
+**Categories:**
+| Category | Description | Special Rules |
+|----------|-------------|---------------|
+| `carhit` | Crash/collision sounds | Random selection |
+| `checkpoint` | Generic checkpoint | When no PB comparison available |
+| `checkpoint-yes` | Faster than PB | Green time |
+| `checkpoint-no` | Slower than PB | Red time |
+| `lap` | Lap completion | `final` in filename = final lap |
+| `medal` | Medal celebrations | Must contain `author`/`gold`/`silver`/`bronze` |
+
+**Hosting Requirements:**
+- Files must be direct download URLs (no redirects to auth pages)
+- Server should support concurrent downloads
+- HTTPS recommended
+
+---
+
+## Custom Sounds (Manual)
+
+You can also manually add your own `.wav` files without using packs.
 
 ### Folder Location
 ```
