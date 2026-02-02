@@ -19,7 +19,7 @@ bool S_CarhitEnabled = true;
 [Setting category="Features" name="Enable Checkpoint Sounds"]
 bool S_CheckpointsEnabled = true;
 
-[Setting category="Features" name="Always Play on Every Checkpoint"]
+[Setting category="Features" name="Always Play on Every Checkpoint" description="When disabled, sounds play at random intervals (every 2-4 checkpoints) to avoid being repetitive on long tracks."]
 bool S_CheckpointsAlways = true;
 
 [Setting category="Features" name="Enable Lap Sounds"]
