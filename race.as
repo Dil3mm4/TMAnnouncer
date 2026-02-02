@@ -15,6 +15,37 @@ namespace RaceLogic {
     // Medal tracking: 0=none, 1=bronze, 2=silver, 3=gold, 4=author
     int BestMedalEarned = 0;
 
+    // Detect best medal already earned from existing PB
+    void InitBestMedalFromPB() {
+        auto app = GetApp();
+        auto playground = cast<CSmArenaClient@>(app.CurrentPlayground);
+        if (playground is null || playground.Map is null) return;
+
+        // Try to get PB time from ghost data
+        auto ghostData = MLFeed::GetGhostData();
+        if (ghostData is null) return;
+
+        int pbTime = -1;
+        for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
+            auto ghost = ghostData.Ghosts_V2[i];
+            if (ghost.IsPersonalBest || IsGameGhost(ghost.Nickname)) {
+                // Get the last checkpoint time (finish time)
+                if (ghost.Checkpoints.Length > 0) {
+                    pbTime = ghost.Checkpoints[ghost.Checkpoints.Length - 1];
+                    break;
+                }
+            }
+        }
+
+        if (pbTime > 0) {
+            BestMedalEarned = GetMedalForTime(playground.Map, pbTime);
+            DebugLog("Initialized BestMedalEarned from PB: " + BestMedalEarned + " (time: " + pbTime + ")");
+        } else {
+            BestMedalEarned = 0;
+            DebugLog("No PB found, BestMedalEarned = 0");
+        }
+    }
+
     // Checks if ghost nickname is a game-generated ghost (PB, medals, etc.)
     bool IsGameGhost(const string &in nick) {
         return nick.StartsWith("") || nick.StartsWith("$7FA") || nick.StartsWith("$FD8") || nick.StartsWith("$5D8");
@@ -79,6 +110,10 @@ namespace RaceLogic {
             LastTickSpeed = 0;
             NextCPToPlay = 1;
             @LocalNativePlayer = null; // Reset to get fresh reference
+
+            // Initialize best medal from existing PB (ghost data is loaded at race start)
+            InitBestMedalFromPB();
+
             DebugLog("RACE START");
             return;
         }
