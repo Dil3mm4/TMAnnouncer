@@ -488,7 +488,12 @@ void CoroutineDownloadPack() {
     ActiveDownload.IsDownloading = false;
     ActiveDownload.IsDone = true;
 
-    if (ActiveDownload.FailedFiles == 0) {
+    // Show popup if there are missing categories
+    if (ActiveDownload.MissingCategories.Length > 0) {
+        g_MissingCategoriesPackName = ActiveDownload.FinalPackName;
+        g_ShowMissingCategoriesPopup = true;
+        // Don't show notification yet, popup will handle it
+    } else if (ActiveDownload.FailedFiles == 0) {
         UI::ShowNotification("\\$0f0Pack '" + ActiveDownload.PackName + "' downloaded successfully!");
     } else {
         UI::ShowNotification("\\$fa0Pack '" + ActiveDownload.PackName + "' downloaded with " + ActiveDownload.FailedFiles + " errors");
@@ -622,6 +627,8 @@ void DeletePack(const string &in folderName) {
 string g_PackUrlInput = "";
 string g_PackToDelete = "";
 bool g_ShowDeleteConfirm = false;
+bool g_ShowMissingCategoriesPopup = false;
+string g_MissingCategoriesPackName = "";
 
 [SettingsTab name="Sound Packs" order="1"]
 void RenderSoundPacksTab() {
@@ -770,6 +777,40 @@ void RenderSoundPacksTab() {
         UI::SameLine();
         if (UI::Button("Cancel")) {
             g_ShowDeleteConfirm = false;
+            UI::CloseCurrentPopup();
+        }
+        UI::EndPopup();
+    }
+
+    // Missing categories popup after download
+    if (g_ShowMissingCategoriesPopup) {
+        UI::OpenPopup("Pack Missing Files");
+    }
+
+    if (UI::BeginPopupModal("Pack Missing Files", g_ShowMissingCategoriesPopup)) {
+        UI::TextWrapped("\\$fa0Warning: The downloaded pack is missing sound files for some categories.");
+        UI::Text("");
+        UI::Text("\\$fffPack: \\$fff" + (ActiveDownload !is null ? ActiveDownload.PackName : g_MissingCategoriesPackName));
+        UI::Text("");
+        UI::Text("\\$fffMissing categories:");
+        if (ActiveDownload !is null) {
+            for (uint m = 0; m < ActiveDownload.MissingCategories.Length; m++) {
+                UI::Text("\\$f80  " + Icons::ExclamationTriangle + " " + ActiveDownload.MissingCategories[m]);
+            }
+        }
+        UI::Text("");
+        UI::TextWrapped("\\$888These categories will not play any sounds. The pack creator may have omitted them intentionally, or there was a download error.");
+        UI::Separator();
+
+        if (UI::Button(Icons::Check + " Acknowledge & Keep")) {
+            g_ShowMissingCategoriesPopup = false;
+            UI::ShowNotification("\\$fa0Pack '" + (ActiveDownload !is null ? ActiveDownload.PackName : g_MissingCategoriesPackName) + "' kept with missing categories");
+            UI::CloseCurrentPopup();
+        }
+        UI::SameLine();
+        if (UI::Button(Icons::Trash + " Cancel & Delete Pack")) {
+            g_ShowMissingCategoriesPopup = false;
+            DeletePack(g_MissingCategoriesPackName);
             UI::CloseCurrentPopup();
         }
         UI::EndPopup();
