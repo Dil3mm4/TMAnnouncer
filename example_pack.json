@@ -1,0 +1,61 @@
+{
+    "_comment": "Trackmania Announcer - Sound Pack Specification",
+    "_version": "1.0",
+
+    "packName": "ExamplePack",
+    "author": "YourName",
+    "description": "A brief description of your sound pack",
+
+    "sounds": {
+        "carhit": {
+            "_info": "Crash/collision sounds. Any filename works. Multiple files = random selection.",
+            "crash1.wav": "https://example.com/sounds/crash1.wav",
+            "crash2.wav": "https://example.com/sounds/crash2.wav",
+            "ouch.wav": "https://example.com/sounds/ouch.wav"
+        },
+
+        "checkpoint": {
+            "_info": "Generic checkpoint sounds (when no PB comparison available).",
+            "checkpoint.wav": "https://example.com/sounds/checkpoint.wav"
+        },
+
+        "checkpoint-yes": {
+            "_info": "Played when checkpoint time is FASTER than PB.",
+            "nice.wav": "https://example.com/sounds/nice.wav",
+            "great.wav": "https://example.com/sounds/great.wav"
+        },
+
+        "checkpoint-no": {
+            "_info": "Played when checkpoint time is SLOWER than PB.",
+            "slow.wav": "https://example.com/sounds/slow.wav",
+            "behind.wav": "https://example.com/sounds/behind.wav"
+        },
+
+        "lap": {
+            "_info": "Lap completion sounds. IMPORTANT: Include 'final' in filename for final lap sound!",
+            "lap.wav": "https://example.com/sounds/lap.wav",
+            "final_lap.wav": "https://example.com/sounds/final_lap.wav"
+        },
+
+        "medal": {
+            "_info": "Medal sounds. IMPORTANT: Filename MUST contain: 'author', 'gold', 'silver', or 'bronze'",
+            "author.wav": "https://example.com/sounds/medal_author.wav",
+            "gold.wav": "https://example.com/sounds/medal_gold.wav",
+            "silver.wav": "https://example.com/sounds/medal_silver.wav",
+            "bronze.wav": "https://example.com/sounds/medal_bronze.wav"
+        }
+    },
+
+    "_naming_rules": {
+        "lap": "Files with 'final' in name are used for the final lap",
+        "medal": "Files MUST contain 'author', 'gold', 'silver', or 'bronze' in the filename"
+    },
+
+    "_notes": [
+        "All files must be .wav format",
+        "Categories are optional - missing categories will have no sound",
+        "Multiple files per category = random selection each time",
+        "Keys starting with '_' are ignored (use for comments)",
+        "URLs must be direct download links to .wav files"
+    ]
+}
