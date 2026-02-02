@@ -1,8 +1,8 @@
 [meta]
-name = "Trackmania Turbo Announcer"
-author = "TheGeekid"
-category = "Race"
-version = "1.0.3"
+name = "Trackmania Announcer"
+author = "Dil3mm4"
+category = "Audio"
+version = "2.0.0"
 siteid = 182
 
 [script]

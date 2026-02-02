@@ -99,6 +99,6 @@ void OnSettingsChanged() {
 // Define DebugLog here so all files can see it
 void DebugLog(const string &in msg) {
     if (S_DebugMode) {
-        print("[RaceSound] " + msg);
+        print("[TMAnnouncer] " + msg);
     }
 }

@@ -1,5 +1,5 @@
 void Main() {
-    print("[RaceSound] INITIALIZING...");
+    print("[TMAnnouncer] INITIALIZING...");
     LoadSamples();
     LastCustomSoundsEnabled = S_CustomSoundsEnabled;
     while (true) {
