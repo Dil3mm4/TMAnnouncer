@@ -12,12 +12,36 @@ Audio::Sample@ MedalBronzeSample;
 float SoundVolumeValue = 1.0f;
 string CustomSoundsPath = "";
 
+// OpenPlanet is quite loud by default, scale down
+const float OPENPLANET_VOLUME_SCALE = 0.35f;
+
+// Convert game's dB volume to amplitude (game uses dB: 0 = max, -40 = silent)
+float ConvertDbToAmplitude(float volumeDb) {
+    // Clamp to valid range
+    volumeDb = Math::Clamp(volumeDb, -40.0f, 0.0f);
+    // dB to amplitude: amp = 10^(dB/20)
+    return Math::Pow(10.0f, volumeDb / 20.0f);
+}
+
 void UpdateVolume() {
     // Plugin master volume (0-100 -> 0.0-1.0)
     float volume = float(S_VoiceVolume) / 100.0f;
 
+    // Optionally scale with in-game sound volume (dB -> amplitude)
+    if (S_ScaleWithGame) {
+        auto app = GetApp();
+        if (app.AudioPort !is null) {
+            float gameVolDb = app.AudioPort.SoundVolume;
+            float gameVolAmp = ConvertDbToAmplitude(gameVolDb);
+            volume *= gameVolAmp;
+        }
+    }
+
     // Apply gain multiplier for fine-tuning
     volume *= S_SoundMultiplier;
+
+    // Apply OpenPlanet loudness scaling
+    volume *= OPENPLANET_VOLUME_SCALE;
 
     // Clamp to valid range
     if (volume < 0.01f) volume = 0.01f;
@@ -160,8 +184,20 @@ void LoadDefaultSamples() {
 void LoadSamples() {
     DebugLog("Loading audio assets...");
 
-    // Initialize custom sounds path and create folder structure
-    CustomSoundsPath = IO::FromStorageFolder("CustomSounds/");
+    // Initialize packs system if needed
+    if (g_PacksConfig is null) {
+        InitPacksSystem();
+    }
+
+    // Determine custom sounds path based on active pack
+    if (S_CustomSoundsEnabled && g_PacksConfig !is null) {
+        CustomSoundsPath = GetActivePackPath();
+        DebugLog("Using pack: " + g_PacksConfig.ActivePack);
+    } else {
+        CustomSoundsPath = IO::FromStorageFolder("CustomSounds/Default/");
+    }
+
+    // Create folder structure for Default pack
     EnsureCustomFoldersExist();
 
     if (S_CustomSoundsEnabled) {
@@ -185,6 +221,9 @@ void LoadSamples() {
         @MedalBronzeSample = null;
         LoadCustomMedals();
 
+        // Warn about missing categories
+        WarnMissingCategories();
+
         DebugLog("Custom assets loaded.");
     } else {
         // Default mode: load built-in assets
@@ -193,6 +232,29 @@ void LoadSamples() {
     }
 
     DebugLog("All assets loaded.");
+}
+
+void WarnMissingCategories() {
+    // Don't warn for Default pack - it uses built-in assets
+    if (g_PacksConfig !is null && g_PacksConfig.ActivePack == "Default") {
+        return;
+    }
+
+    array<string> missing;
+
+    if (CarhitSamples.Length == 0) missing.InsertLast("carhit");
+    if (CPSamples.Length == 0) missing.InsertLast("checkpoint");
+    if (CPYesSamples.Length == 0) missing.InsertLast("checkpoint-yes");
+    if (CPNoSamples.Length == 0) missing.InsertLast("checkpoint-no");
+    if (LapNumberedSamples.Length == 0 && LapFinalSample is null) missing.InsertLast("lap");
+    if (MedalAuthorSample is null && MedalGoldSample is null &&
+        MedalSilverSample is null && MedalBronzeSample is null) missing.InsertLast("medal");
+
+    if (missing.Length > 0) {
+        string packName = (g_PacksConfig !is null) ? g_PacksConfig.ActivePack : "Custom";
+        warn("[TMAnnouncer] Pack '" + packName + "' is missing sounds for: " + string::Join(missing, ", "));
+        UI::ShowNotification("\\$fa0Sound pack missing: " + string::Join(missing, ", "));
+    }
 }
 
 void PlayRandom(array<Audio::Sample@>@ samples, const string &in category) {
