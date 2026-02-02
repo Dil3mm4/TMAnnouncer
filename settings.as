@@ -1,11 +1,8 @@
 [Setting category="General" name="Master Volume" min=0 max=100]
 int S_VoiceVolume = 50;
 
-[Setting category="General" name="Scale with In-game Volume"]
-bool S_IngameSound = true;
-
-[Setting category="General" name="Sound Gain Multiplier"]
-float S_SoundMultiplier = 0.5;
+[Setting category="General" name="Sound Gain Multiplier" min=0.1 max=2.0]
+float S_SoundMultiplier = 1.0;
 
 [Setting category="Advanced" name="Crash Sensitivity" min=0.1 max=1.0]
 float S_CarhitSensitivity = 0.6;

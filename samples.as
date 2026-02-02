@@ -13,14 +13,8 @@ float SoundVolumeValue = 1.0f;
 string CustomSoundsPath = "";
 
 void UpdateVolume() {
-    // Start with plugin master volume (0-100 -> 0.0-1.0)
+    // Plugin master volume (0-100 -> 0.0-1.0)
     float volume = float(S_VoiceVolume) / 100.0f;
-
-    // Optionally scale with in-game volume
-    auto app = GetApp();
-    if (S_IngameSound && app.AudioPort !is null) {
-        volume *= app.AudioPort.SoundVolume;
-    }
 
     // Apply gain multiplier for fine-tuning
     volume *= S_SoundMultiplier;
@@ -30,7 +24,6 @@ void UpdateVolume() {
     if (volume > 2.0f) volume = 2.0f;
 
     SoundVolumeValue = volume;
-    DebugLog("Volume: " + SoundVolumeValue + " (Master:" + S_VoiceVolume + "%, Gain:" + S_SoundMultiplier + ")");
 }
 
 // Create custom sounds folder structure if it doesn't exist
