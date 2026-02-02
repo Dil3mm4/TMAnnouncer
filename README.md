@@ -62,6 +62,7 @@ See [example_pack.json](example_pack.json) for the full specification. Basic str
 {
     "packName": "MyVoicePack",
     "author": "YourName",
+    "version": "1.0",
     "sounds": {
         "carhit": {
             "crash1.wav": "https://example.com/crash1.wav",

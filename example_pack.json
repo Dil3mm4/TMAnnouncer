@@ -4,6 +4,7 @@
 
     "packName": "ExamplePack",
     "author": "YourName",
+    "version": "1.0",
     "description": "A brief description of your sound pack",
 
     "sounds": {
