@@ -89,6 +89,32 @@ class PacksConfig {
 PacksConfig@ g_PacksConfig = null;
 string g_PacksConfigPath = "";
 
+bool IsAlphaNumSpace(const string &in s) {
+    if (s.Length == 0) return false;
+    for (uint i = 0; i < s.Length; i++) {
+        string ch = s.SubStr(i, 1);
+        if ((ch >= "0" && ch <= "9") || (ch >= "A" && ch <= "Z") || (ch >= "a" && ch <= "z") || ch == " ")
+            continue;
+        return false;
+    }
+    return true;
+}
+
+bool IsValidFileName(const string &in s) {
+    if (s.Length == 0) return false;
+    for (uint i = 0; i < s.Length; i++) {
+        string ch = s.SubStr(i, 1);
+        if ((ch >= "0" && ch <= "9") || (ch >= "A" && ch <= "Z") || (ch >= "a" && ch <= "z"))
+            continue;
+        if (ch == " " || ch == "." || ch == "_" || ch == "-")
+            continue;
+        return false;
+    }
+    // Prevent path traversal
+    if (s.Contains("..") || s.Contains("/") || s.Contains("\\")) return false;
+    return true;
+}
+
 void InitPacksSystem() {
     g_PacksConfigPath = IO::FromStorageFolder("packs_config.json");
     LoadPacksConfig();
@@ -320,13 +346,17 @@ void CoroutineDownloadPack() {
     ActiveDownload.Author = json.Get("author", "Unknown");
     ActiveDownload.Version = json.Get("version", "1.0");
 
-    // Validate pack name (no special chars)
-    if (ActiveDownload.PackName.Contains("/") || ActiveDownload.PackName.Contains("\\") ||
-        ActiveDownload.PackName.Contains("..") || ActiveDownload.PackName.Contains(":")) {
+    // Validate pack name (allow only alnum and spaces)
+    if (!IsAlphaNumSpace(ActiveDownload.PackName)) {
         ActiveDownload.LastError = "Invalid pack name";
         ActiveDownload.IsDownloading = false;
         ActiveDownload.IsDone = true;
         return;
+    }
+
+    // Sanitize author: if invalid, mark as Unknown to avoid injecting unsafe chars into folder name
+    if (!IsAlphaNumSpace(ActiveDownload.Author)) {
+        ActiveDownload.Author = "Unknown";
     }
 
     // Determine the final folder name, handling conflicts
@@ -418,7 +448,7 @@ void CoroutineDownloadPack() {
             if (url.Length == 0) continue;
 
             // Validate filename
-            if (fileName.Contains("/") || fileName.Contains("\\") || fileName.Contains("..")) {
+            if (!IsValidFileName(fileName)) {
                 warn("[TMAnnouncer] Invalid filename skipped: " + fileName);
                 continue;
             }
@@ -643,7 +673,7 @@ void RenderSoundPacksTab() {
     // Custom Sounds status
     UI::Text("\\$aaaCustom Sounds: " + (S_CustomSoundsEnabled ? "\\$0f0Enabled" : "\\$888Disabled (using built-in)"));
     UI::TextWrapped("\\$888Select a pack other than Default to enable custom sounds automatically.");
-    UI::Text("");
+    UI::NewLine();
 
     // Reload button
     if (S_CustomSoundsEnabled) {
@@ -741,7 +771,7 @@ void RenderSoundPacksTab() {
                 for (uint m = 0; m < missingCats.Length; m++) {
                     UI::Text("\\$888  - " + missingCats[m]);
                 }
-                UI::Text("");
+                UI::NewLine();
                 UI::Text("\\$888These categories will have no sounds.");
                 UI::EndTooltip();
             }
@@ -789,9 +819,9 @@ void RenderSoundPacksTab() {
 
     if (UI::BeginPopupModal("Pack Missing Files", g_ShowMissingCategoriesPopup)) {
         UI::TextWrapped("\\$fa0Warning: The downloaded pack is missing sound files for some categories.");
-        UI::Text("");
+        UI::NewLine();
         UI::Text("\\$fffPack: \\$fff" + (ActiveDownload !is null ? ActiveDownload.PackName : g_MissingCategoriesPackName));
-        UI::Text("");
+        UI::NewLine();
         UI::Text("\\$fffMissing categories:");
         if (ActiveDownload !is null) {
             for (uint m = 0; m < ActiveDownload.MissingCategories.Length; m++) {
