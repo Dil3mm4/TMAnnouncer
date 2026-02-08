@@ -90,29 +90,19 @@ PacksConfig@ g_PacksConfig = null;
 string g_PacksConfigPath = "";
 
 bool IsAlphaNumSpace(const string &in s) {
-    if (s.Length == 0) return false;
-    for (uint i = 0; i < s.Length; i++) {
-        string ch = s.SubStr(i, 1);
-        if ((ch >= "0" && ch <= "9") || (ch >= "A" && ch <= "Z") || (ch >= "a" && ch <= "z") || ch == " ")
-            continue;
-        return false;
-    }
-    return true;
+    return s.Length > 0 &&
+        Regex::IsMatch(
+            s,
+            "^[A-Za-z0-9 ]+$"
+        );
 }
 
 bool IsValidFileName(const string &in s) {
-    if (s.Length == 0) return false;
-    for (uint i = 0; i < s.Length; i++) {
-        string ch = s.SubStr(i, 1);
-        if ((ch >= "0" && ch <= "9") || (ch >= "A" && ch <= "Z") || (ch >= "a" && ch <= "z"))
-            continue;
-        if (ch == " " || ch == "." || ch == "_" || ch == "-")
-            continue;
-        return false;
-    }
-    // Prevent path traversal
-    if (s.Contains("..") || s.Contains("/") || s.Contains("\\")) return false;
-    return true;
+    return s.Length > 0 &&
+        Regex::IsMatch(
+            s,
+            "^(?!\\.)(?!.*\\.\\.)(?!.*[\\\\/])(?!.*[ .]$)[A-Za-z0-9 _.-]+$"
+        );
 }
 
 void InitPacksSystem() {
