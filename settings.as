@@ -128,10 +128,28 @@ void RenderInterface() {
     }
 
     const MLFeed::SharedGhostDataHook_V2@ ghostData = MLFeed::GetGhostData();
+    const MLFeed::HookRaceStatsEventsBase_V4@ raceData = MLFeed::GetRaceData_V4();
     uint sortedGhostCount = ghostData is null ? 0 : ghostData.SortedGhosts.Length;
     uint loadedGhostCount = ghostData is null ? 0 : ghostData.LoadedGhosts.Length;
     uint localLoginId = MLFeed::LocalPlayersLoginIdValue;
     bool hasLocalLoginId = localLoginId != 0xFFFFFFFF;
+    uint raceDataBestRaceCount = 0;
+    if (raceData !is null && raceData.LocalPlayer !is null && raceData.LocalPlayer.BestRaceTimes !is null) {
+        raceDataBestRaceCount = raceData.LocalPlayer.BestRaceTimes.Length;
+    }
+
+    uint nativeBestRaceCount = 0;
+    auto app = GetApp();
+    auto playground = cast<CSmArenaClient@>(app.CurrentPlayground);
+    if (playground !is null && playground.GameTerminals.Length > 0) {
+        auto controlledPlayer = cast<CSmPlayer@>(playground.GameTerminals[0].ControlledPlayer);
+        if (controlledPlayer !is null && controlledPlayer.ScriptAPI !is null) {
+            auto scriptPlayer = cast<CSmScriptPlayer@>(controlledPlayer.ScriptAPI);
+            if (scriptPlayer !is null && scriptPlayer.Score !is null) {
+                nativeBestRaceCount = scriptPlayer.Score.BestRaceTimes.Length;
+            }
+        }
+    }
 
     if (!UI::Begin("TM Announcer Debug", S_ShowDebugWindow)) {
         UI::End();
@@ -154,6 +172,7 @@ void RenderInterface() {
     UI::Text("PB Cached Finish: " + pbFinish + " | Cached CP Count: " + tostring(RaceLogic::CachedPBCheckpoints.Length));
     UI::Text("Medal Baseline Known: " + tostring(RaceLogic::MedalBaselineKnown) + " | Best Medal: " + tostring(RaceLogic::BestMedalEarned));
     UI::Text("Local LoginId: " + (hasLocalLoginId ? tostring(localLoginId) : "n/a") + " | Ghosts Sorted/Loaded: " + tostring(sortedGhostCount) + "/" + tostring(loadedGhostCount));
+    UI::Text("BestRaceTimes length (Native/RaceData): " + tostring(nativeBestRaceCount) + "/" + tostring(raceDataBestRaceCount));
 
     UI::Separator();
     if (UI::Button(Icons::Refresh + " Refresh PB Cache")) {

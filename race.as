@@ -21,9 +21,9 @@ namespace RaceLogic {
     // PB init retry state
     bool PBInitPending = false;
     int PBInitRetries = 0;
-    const int PBInitMaxRetries = 10;
+    const int PBInitMaxRetries = 240;
     uint64 PBInitLastAttemptTime = 0;
-    const uint64 PBInitRetryInterval = 500; // ms
+    const uint64 PBInitRetryInterval = 250; // ms
 
     // Prevent playing the same medal multiple times for the same StartTime
     int LastMedalPlayedStartTime = -1;
@@ -47,6 +47,89 @@ namespace RaceLogic {
             }
         }
         return -1;
+    }
+
+    bool TryCacheFromCheckpointTimes(const array<uint>@ checkpointTimes, const string &in sourceTag) {
+        if (checkpointTimes is null || CPsToFinishTotal == 0 || checkpointTimes.Length == 0) {
+            return false;
+        }
+
+        uint sourceStartIndex = 0;
+        uint finishIndex = 0;
+        bool hasCompleteRun = false;
+
+        // Expected shape: [cp1, cp2, ..., finish]
+        if (checkpointTimes.Length >= CPsToFinishTotal && checkpointTimes[CPsToFinishTotal - 1] > 0) {
+            sourceStartIndex = 0;
+            finishIndex = CPsToFinishTotal - 1;
+            hasCompleteRun = true;
+        }
+        // Alternate shape: [0, cp1, cp2, ..., finish]
+        else if (checkpointTimes.Length > CPsToFinishTotal && checkpointTimes[0] == 0 && checkpointTimes[CPsToFinishTotal] > 0) {
+            sourceStartIndex = 1;
+            finishIndex = CPsToFinishTotal;
+            hasCompleteRun = true;
+        }
+
+        if (!hasCompleteRun) {
+            return false;
+        }
+
+        CachedPBCheckpoints.Resize(CPsToFinishTotal);
+        for (uint i = 0; i < CPsToFinishTotal; i++) {
+            CachedPBCheckpoints[i] = checkpointTimes[sourceStartIndex + i];
+        }
+
+        CachedPBFinishTime = int(checkpointTimes[finishIndex]);
+        DebugLog("PB source selected: " + sourceTag + " (" + Time::Format(uint(CachedPBFinishTime)) + ")");
+        return CachedPBFinishTime > 0;
+    }
+
+    bool TryCacheFromNativeBestRaceTimes() {
+        auto app = GetApp();
+        auto playground = cast<CSmArenaClient@>(app.CurrentPlayground);
+        if (playground is null || playground.GameTerminals.Length == 0) {
+            return false;
+        }
+
+        auto controlledPlayer = cast<CSmPlayer@>(playground.GameTerminals[0].ControlledPlayer);
+        if (controlledPlayer is null || controlledPlayer.ScriptAPI is null) {
+            return false;
+        }
+
+        auto scriptPlayer = cast<CSmScriptPlayer@>(controlledPlayer.ScriptAPI);
+        if (scriptPlayer is null || scriptPlayer.Score is null || scriptPlayer.Score.BestRaceTimes.Length == 0) {
+            return false;
+        }
+
+        array<uint> bestRaceTimes(scriptPlayer.Score.BestRaceTimes.Length);
+        for (uint i = 0; i < bestRaceTimes.Length; i++) {
+            bestRaceTimes[i] = scriptPlayer.Score.BestRaceTimes[i];
+        }
+
+        return TryCacheFromCheckpointTimes(bestRaceTimes, "NativeScore:BestRaceTimes");
+    }
+
+    bool TryCacheFromRaceDataBestRaceTimes() {
+        const MLFeed::HookRaceStatsEventsBase_V4@ raceData = MLFeed::GetRaceData_V4();
+        if (raceData is null) {
+            return false;
+        }
+
+        const MLFeed::PlayerCpInfo_V4@ localPlayer = raceData.LocalPlayer;
+        if (localPlayer !is null && TryCacheFromCheckpointTimes(localPlayer.BestRaceTimes, "RaceData:LocalPlayer.BestRaceTimes")) {
+            return true;
+        }
+
+        string localName = MLFeed::LocalPlayersName;
+        if (localName.Length > 0) {
+            const MLFeed::PlayerCpInfo_V4@ playerByName = raceData.GetPlayer_V4(localName);
+            if (playerByName !is null && TryCacheFromCheckpointTimes(playerByName.BestRaceTimes, "RaceData:NameLookup.BestRaceTimes")) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     bool GhostMatchesCriteria(const MLFeed::GhostInfo_V2@ ghost, bool requirePersonalBest, bool requireLocalPlayer, bool requireLocalLoginId, uint localLoginId) {
@@ -153,29 +236,41 @@ namespace RaceLogic {
         CachedPBCheckpoints.Resize(0);
         CachedPBFinishTime = -1;
 
-        if (ghostData is null || CPsToFinishTotal == 0) {
+        if (CPsToFinishTotal == 0) {
             return false;
         }
         uint localLoginId = MLFeed::LocalPlayersLoginIdValue;
         bool hasLocalLoginId = localLoginId != 0xFFFFFFFF;
 
-        // Primary path: PB flag + local login-id when available.
-        if (hasLocalLoginId && TryCacheBestGhostByCriteria(ghostData, true, false, true, localLoginId, "PersonalBest+LocalLoginId")) {
+        if (ghostData !is null) {
+            // Primary path: PB flag + local login-id when available.
+            if (hasLocalLoginId && TryCacheBestGhostByCriteria(ghostData, true, false, true, localLoginId, "PersonalBest+LocalLoginId")) {
+                return true;
+            }
+
+            // Fallback 1: PB flag + local-player marker.
+            if (TryCacheBestGhostByCriteria(ghostData, true, true, false, localLoginId, "PersonalBest+IsLocalPlayer")) {
+                return true;
+            }
+
+            // Fallback 2: local login-id match (covers cases where PB flags are missing).
+            if (hasLocalLoginId && TryCacheBestGhostByCriteria(ghostData, false, false, true, localLoginId, "LocalLoginId")) {
+                return true;
+            }
+
+            // Fallback 3: local-player ghost marker.
+            if (TryCacheBestGhostByCriteria(ghostData, false, true, false, localLoginId, "IsLocalPlayer")) {
+                return true;
+            }
+        }
+
+        // Fallback 4: native player score best-race checkpoints (does not depend on ghost loading).
+        if (TryCacheFromNativeBestRaceTimes()) {
             return true;
         }
 
-        // Fallback 1: PB flag + local-player marker.
-        if (TryCacheBestGhostByCriteria(ghostData, true, true, false, localLoginId, "PersonalBest+IsLocalPlayer")) {
-            return true;
-        }
-
-        // Fallback 2: local login-id match (covers cases where PB flags are missing).
-        if (hasLocalLoginId && TryCacheBestGhostByCriteria(ghostData, false, false, true, localLoginId, "LocalLoginId")) {
-            return true;
-        }
-
-        // Fallback 3: local-player ghost marker.
-        if (TryCacheBestGhostByCriteria(ghostData, false, true, false, localLoginId, "IsLocalPlayer")) {
+        // Fallback 5: MLFeed race data best-race checkpoints for local player.
+        if (TryCacheFromRaceDataBestRaceTimes()) {
             return true;
         }
 
@@ -192,7 +287,7 @@ namespace RaceLogic {
 
         if (!RefreshCachedPBData()) {
             BestMedalEarned = 0;
-            DebugLog("InitBestMedalFromPB: no usable complete ghost found");
+            DebugLog("InitBestMedalFromPB: no usable complete PB source found");
             return false;
         }
 
