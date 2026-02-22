@@ -112,6 +112,7 @@ void InitPacksSystem() {
 
 void LoadPacksConfig() {
     @g_PacksConfig = PacksConfig();
+    bool activePackWasAdjusted = false;
 
     if (IO::FileExists(g_PacksConfigPath)) {
         try {
@@ -158,6 +159,21 @@ void LoadPacksConfig() {
 
     // Scan for packs on disk that might not be in config
     ScanInstalledPacks();
+
+    // If the saved active pack is missing, fall back to Default.
+    if (g_PacksConfig.FindByFolderName(g_PacksConfig.ActivePack) is null) {
+        warn("[TMAnnouncer] Active pack '" + g_PacksConfig.ActivePack + "' not found; falling back to Default.");
+        g_PacksConfig.ActivePack = "Default";
+        activePackWasAdjusted = true;
+    }
+
+    // Keep custom sounds state aligned with active pack immediately at startup.
+    S_CustomSoundsEnabled = g_PacksConfig.ActivePack != "Default";
+    LastCustomSoundsEnabled = S_CustomSoundsEnabled;
+
+    if (activePackWasAdjusted) {
+        SavePacksConfig();
+    }
 }
 
 void SavePacksConfig() {
