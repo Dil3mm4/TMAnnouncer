@@ -36,7 +36,20 @@ namespace RaceLogic {
         CachedPBFinishTime = finishTime;
     }
 
-    bool TryCacheBestGhostFromSorted(const MLFeed::SharedGhostDataHook_V2@ ghostData, bool requirePersonalBest, bool requireLocalPlayer, const string &in sourceTag) {
+    int ResolveGhostFinishTime(const MLFeed::GhostInfo_V2@ ghost) {
+        if (ghost.Result_Time > 0) {
+            return ghost.Result_Time;
+        }
+        if (CPsToFinishTotal > 0 && ghost.Checkpoints.Length >= CPsToFinishTotal) {
+            uint cpFinish = ghost.Checkpoints[CPsToFinishTotal - 1];
+            if (cpFinish > 0) {
+                return int(cpFinish);
+            }
+        }
+        return -1;
+    }
+
+    bool TryCacheBestGhostFromSorted(const MLFeed::SharedGhostDataHook_V2@ ghostData, bool requirePersonalBest, bool requireLocalPlayer, bool requireLocalLoginId, uint localLoginId, const string &in sourceTag) {
         for (uint i = 0; i < ghostData.SortedGhosts.Length; i++) {
             auto ghost = ghostData.SortedGhosts[i];
             if (ghost is null) {
@@ -48,23 +61,23 @@ namespace RaceLogic {
             if (requireLocalPlayer && !ghost.IsLocalPlayer) {
                 continue;
             }
-            if (ghost.Checkpoints.Length < CPsToFinishTotal) {
+            if (requireLocalLoginId && ghost.IdUint != localLoginId) {
                 continue;
             }
 
-            uint finishTime = ghost.Checkpoints[CPsToFinishTotal - 1];
-            if (finishTime == 0) {
+            int finishTime = ResolveGhostFinishTime(ghost);
+            if (finishTime <= 0) {
                 continue;
             }
 
-            CacheGhostData(ghost, int(finishTime));
+            CacheGhostData(ghost, finishTime);
             DebugLog("PB source selected: " + sourceTag + " (" + Time::Format(uint(CachedPBFinishTime)) + ")");
             return true;
         }
         return false;
     }
 
-    bool TryCacheBestGhostFromLoaded(const MLFeed::SharedGhostDataHook_V2@ ghostData, bool requirePersonalBest, bool requireLocalPlayer, const string &in sourceTag) {
+    bool TryCacheBestGhostFromLoaded(const MLFeed::SharedGhostDataHook_V2@ ghostData, bool requirePersonalBest, bool requireLocalPlayer, bool requireLocalLoginId, uint localLoginId, const string &in sourceTag) {
         for (uint i = 0; i < ghostData.LoadedGhosts.Length; i++) {
             auto ghost = ghostData.LoadedGhosts[i];
             if (ghost is null) {
@@ -76,16 +89,16 @@ namespace RaceLogic {
             if (requireLocalPlayer && !ghost.IsLocalPlayer) {
                 continue;
             }
-            if (ghost.Checkpoints.Length < CPsToFinishTotal) {
+            if (requireLocalLoginId && ghost.IdUint != localLoginId) {
                 continue;
             }
 
-            uint finishTime = ghost.Checkpoints[CPsToFinishTotal - 1];
-            if (finishTime == 0) {
+            int finishTime = ResolveGhostFinishTime(ghost);
+            if (finishTime <= 0) {
                 continue;
             }
 
-            CacheGhostData(ghost, int(finishTime));
+            CacheGhostData(ghost, finishTime);
             DebugLog("PB source selected: " + sourceTag + " (" + Time::Format(uint(CachedPBFinishTime)) + ")");
             return true;
         }
@@ -100,22 +113,34 @@ namespace RaceLogic {
         if (ghostData is null || CPsToFinishTotal == 0) {
             return false;
         }
+        uint localLoginId = MLFeed::LocalPlayersLoginIdValue;
+        bool hasLocalLoginId = localLoginId != 0xFFFFFFFF;
 
         // Primary path: explicit PB flag.
-        if (TryCacheBestGhostFromSorted(ghostData, true, false, "SortedGhosts:IsPersonalBest")) {
+        if (TryCacheBestGhostFromSorted(ghostData, true, false, false, localLoginId, "SortedGhosts:IsPersonalBest")) {
             return true;
         }
 
-        // Fallback 1: local-player ghost (covers sessions where PB flag is missing).
-        if (TryCacheBestGhostFromSorted(ghostData, false, true, "SortedGhosts:IsLocalPlayer")) {
+        // Fallback 1: local login ID match (covers cases where IsLocalPlayer is not set).
+        if (hasLocalLoginId && TryCacheBestGhostFromSorted(ghostData, false, false, true, localLoginId, "SortedGhosts:LocalLoginId")) {
             return true;
         }
 
-        // Fallback 2: loaded ghosts only, in case sorted list is stale/unavailable.
-        if (TryCacheBestGhostFromLoaded(ghostData, true, false, "LoadedGhosts:IsPersonalBest")) {
+        // Fallback 2: local-player ghost (covers sessions where PB flag is missing).
+        if (TryCacheBestGhostFromSorted(ghostData, false, true, false, localLoginId, "SortedGhosts:IsLocalPlayer")) {
             return true;
         }
-        if (TryCacheBestGhostFromLoaded(ghostData, false, true, "LoadedGhosts:IsLocalPlayer")) {
+
+        // Fallback 3: loaded ghosts only, in case sorted list is stale/unavailable.
+        if (TryCacheBestGhostFromLoaded(ghostData, true, false, false, localLoginId, "LoadedGhosts:IsPersonalBest")) {
+            return true;
+        }
+
+        if (hasLocalLoginId && TryCacheBestGhostFromLoaded(ghostData, false, false, true, localLoginId, "LoadedGhosts:LocalLoginId")) {
+            return true;
+        }
+
+        if (TryCacheBestGhostFromLoaded(ghostData, false, true, false, localLoginId, "LoadedGhosts:IsLocalPlayer")) {
             return true;
         }
 
