@@ -29,19 +29,27 @@ namespace RaceLogic {
 
     bool RefreshCachedPBData() {
         auto ghostData = MLFeed::GetGhostData();
-        if (ghostData is null || CPsToFinishTotal == 0) return false;
+        if (ghostData is null || CPsToFinishTotal == 0) {
+            return false;
+        }
 
         int bestFinishTime = -1;
         const array<uint>@ bestCheckpoints = null;
 
         for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
             auto ghost = ghostData.Ghosts_V2[i];
-            if (!ghost.IsPersonalBest) continue;
-            if (ghost.Checkpoints.Length < CPsToFinishTotal) continue;
+            if (!ghost.IsPersonalBest) {
+                continue;
+            }
+            if (ghost.Checkpoints.Length < CPsToFinishTotal) {
+                continue;
+            }
 
             // Use the expected finish index for this map/lap setup.
             uint finishTime = ghost.Checkpoints[CPsToFinishTotal - 1];
-            if (finishTime == 0) continue;
+            if (finishTime == 0) {
+                continue;
+            }
 
             if (bestCheckpoints is null || int(finishTime) < bestFinishTime) {
                 bestFinishTime = int(finishTime);
@@ -49,7 +57,9 @@ namespace RaceLogic {
             }
         }
 
-        if (bestCheckpoints is null) return false;
+        if (bestCheckpoints is null) {
+            return false;
+        }
 
         CachedPBCheckpoints.Resize(bestCheckpoints.Length);
         for (uint i = 0; i < bestCheckpoints.Length; i++) {
@@ -63,7 +73,9 @@ namespace RaceLogic {
     bool InitBestMedalFromPB() {
         auto app = GetApp();
         auto playground = cast<CSmArenaClient@>(app.CurrentPlayground);
-        if (playground is null || playground.Map is null) return false;
+        if (playground is null || playground.Map is null) {
+            return false;
+        }
 
         if (!RefreshCachedPBData()) {
             BestMedalEarned = 0;
@@ -80,19 +92,31 @@ namespace RaceLogic {
         if (CachedPBCheckpoints.Length >= CPsToFinishTotal && CPsToFinishTotal > 0) {
             return CachedPBCheckpoints;
         }
+
         if (RefreshCachedPBData()) {
             return CachedPBCheckpoints;
         }
+
         return null;
     }
 
     // Returns the medal earned for a given time: 4=author, 3=gold, 2=silver, 1=bronze, 0=none
     int GetMedalForTime(CGameCtnChallenge@ map, int finishTime) {
-        if (finishTime <= 0) return 0;
-        if (map.TMObjective_AuthorTime > 0 && finishTime <= map.TMObjective_AuthorTime) return 4;
-        if (map.TMObjective_GoldTime > 0 && finishTime <= map.TMObjective_GoldTime) return 3;
-        if (map.TMObjective_SilverTime > 0 && finishTime <= map.TMObjective_SilverTime) return 2;
-        if (map.TMObjective_BronzeTime > 0 && finishTime <= map.TMObjective_BronzeTime) return 1;
+        if (finishTime <= 0) {
+            return 0;
+        }
+        if (map.TMObjective_AuthorTime > 0 && finishTime <= map.TMObjective_AuthorTime) {
+            return 4;
+        }
+        if (map.TMObjective_GoldTime > 0 && finishTime <= map.TMObjective_GoldTime) {
+            return 3;
+        }
+        if (map.TMObjective_SilverTime > 0 && finishTime <= map.TMObjective_SilverTime) {
+            return 2;
+        }
+        if (map.TMObjective_BronzeTime > 0 && finishTime <= map.TMObjective_BronzeTime) {
+            return 1;
+        }
         return 0;
     }
 
@@ -101,7 +125,9 @@ namespace RaceLogic {
         auto playground = cast<CSmArenaClient@>(app.CurrentPlayground);
 
         if (playground is null || playground.GameTerminals.Length == 0 || playground.Map is null) {
-            if (IsRunning) FullReset();
+            if (IsRunning) {
+                FullReset();
+            }
             return;
         }
 
@@ -120,12 +146,16 @@ namespace RaceLogic {
 
         auto terminal = playground.GameTerminals[0];
         if (terminal.UISequence_Current != CGamePlaygroundUIConfig::EUISequence::Playing) {
-            if (IsRunning) IsRunning = false;
+            if (IsRunning) {
+                IsRunning = false;
+            }
             return;
         }
 
         auto raceData = MLFeed::GetRaceData_V4();
-        if (raceData is null) return;
+        if (raceData is null) {
+            return;
+        }
 
         if (raceData.Map != CurrentMapUid) {
             CurrentMapUid = raceData.Map;
@@ -134,14 +164,19 @@ namespace RaceLogic {
         }
 
         auto mlPlayer = raceData.LocalPlayer;
-        if (mlPlayer is null) return;
+        if (mlPlayer is null) {
+            return;
+        }
 
         if (int(mlPlayer.StartTime) != LastStartTime) {
             LastStartTime = int(mlPlayer.StartTime);
             LapsTotal = playground.Map.TMObjective_IsLapRace ? playground.Map.TMObjective_NbLaps : 1;
             CPsToFinishTotal = raceData.CPsToFinish;
-            if (LapsTotal > 0) CPsPerLap = CPsToFinishTotal / LapsTotal;
-            else CPsPerLap = CPsToFinishTotal;
+            if (LapsTotal > 0) {
+                CPsPerLap = CPsToFinishTotal / LapsTotal;
+            } else {
+                CPsPerLap = CPsToFinishTotal;
+            }
             CachedPBCheckpoints.Resize(0);
             CachedPBFinishTime = -1;
 
@@ -165,7 +200,9 @@ namespace RaceLogic {
             return;
         }
 
-        if (!IsRunning || !mlPlayer.IsSpawned) return;
+        if (!IsRunning || !mlPlayer.IsSpawned) {
+            return;
+        }
 
         if (mlPlayer.CpCount > LastCPCount) {
             int currentCp = mlPlayer.CpCount;
@@ -204,7 +241,10 @@ namespace RaceLogic {
                             soundPlayed = true;
                         }
                     }
-                    if (!soundPlayed) PlayGenericCP();
+
+                    if (!soundPlayed) {
+                        PlayGenericCP();
+                    }
                 }
             }
             LastCPCount = currentCp;
@@ -227,9 +267,15 @@ namespace RaceLogic {
     }
 
     bool UpdateNativePlayer() {
-        if (LocalNativePlayer !is null) return true;
+        if (LocalNativePlayer !is null) {
+            return true;
+        }
+
         auto playground = GetApp().CurrentPlayground;
-        if (playground is null || playground.GameTerminals.Length == 0) return false;
+        if (playground is null || playground.GameTerminals.Length == 0) {
+            return false;
+        }
+
         @LocalNativePlayer = cast<CSmPlayer@>(playground.GameTerminals[0].ControlledPlayer);
         return LocalNativePlayer !is null;
     }
@@ -243,7 +289,8 @@ namespace RaceLogic {
         CachedPBCheckpoints.Resize(0);
         CachedPBFinishTime = -1;
         @LocalNativePlayer = null;
-        // reset PB init and medal-play state
+
+        // Reset PB init and medal-play state
         PBInitPending = false;
         PBInitRetries = 0;
         PBInitLastAttemptTime = 0;
@@ -254,12 +301,15 @@ namespace RaceLogic {
     // NextCPToPlay starts at 0 (first CP). When currentCp matches, play sound
     // and set next trigger 2-4 CPs ahead.
     bool ShouldPlayCPSound(int currentCp) {
-        if (S_CheckpointsAlways) return true;
+        if (S_CheckpointsAlways) {
+            return true;
+        }
 
         if (currentCp == NextCPToPlay) {
             NextCPToPlay = currentCp + Math::Rand(2, 5); // next in 2-4 CPs
             return true;
         }
+
         return false;
     }
 }
