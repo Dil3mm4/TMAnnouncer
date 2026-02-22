@@ -14,6 +14,9 @@ namespace RaceLogic {
 
     // Medal tracking: 0=none, 1=bronze, 2=silver, 3=gold, 4=author
     int BestMedalEarned = 0;
+    array<uint> CachedPBCheckpoints;
+    int CachedPBFinishTime = -1;
+
     // PB init retry state
     bool PBInitPending = false;
     int PBInitRetries = 0;
@@ -24,52 +27,61 @@ namespace RaceLogic {
     // Prevent playing the same medal multiple times for the same StartTime
     int LastMedalPlayedStartTime = -1;
 
+    bool RefreshCachedPBData() {
+        auto ghostData = MLFeed::GetGhostData();
+        if (ghostData is null || CPsToFinishTotal == 0) return false;
+
+        int bestFinishTime = -1;
+        const array<uint>@ bestCheckpoints = null;
+
+        for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
+            auto ghost = ghostData.Ghosts_V2[i];
+            if (!ghost.IsPersonalBest) continue;
+            if (ghost.Checkpoints.Length < CPsToFinishTotal) continue;
+
+            // Use the expected finish index for this map/lap setup.
+            uint finishTime = ghost.Checkpoints[CPsToFinishTotal - 1];
+            if (finishTime == 0) continue;
+
+            if (bestCheckpoints is null || int(finishTime) < bestFinishTime) {
+                bestFinishTime = int(finishTime);
+                @bestCheckpoints = ghost.Checkpoints;
+            }
+        }
+
+        if (bestCheckpoints is null) return false;
+
+        CachedPBCheckpoints.Resize(bestCheckpoints.Length);
+        for (uint i = 0; i < bestCheckpoints.Length; i++) {
+            CachedPBCheckpoints[i] = bestCheckpoints[i];
+        }
+        CachedPBFinishTime = bestFinishTime;
+        return true;
+    }
+
     // Detect best medal already earned from existing PB
     bool InitBestMedalFromPB() {
         auto app = GetApp();
         auto playground = cast<CSmArenaClient@>(app.CurrentPlayground);
         if (playground is null || playground.Map is null) return false;
 
-        // Try to get PB time from ghost data
-        auto ghostData = MLFeed::GetGhostData();
-        if (ghostData is null) return false;
-
-        int pbTime = -1;
-        for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
-            auto ghost = ghostData.Ghosts_V2[i];
-            // Only consider ghosts that are PBs or game ghosts AND have completed the track
-            if ((ghost.IsPersonalBest || IsGameGhost(ghost.Nickname)) && ghost.Checkpoints.Length >= CPsToFinishTotal && CPsToFinishTotal > 0) {
-                // Get the finish time (last checkpoint)
-                pbTime = ghost.Checkpoints[ghost.Checkpoints.Length - 1];
-                break;
-            }
-        }
-
-        if (pbTime > 0) {
-            BestMedalEarned = GetMedalForTime(playground.Map, pbTime);
-            DebugLog("Initialized BestMedalEarned from PB: " + BestMedalEarned + " (time: " + pbTime + ")");
-            return true;
-        } else {
+        if (!RefreshCachedPBData()) {
             BestMedalEarned = 0;
-            DebugLog("InitBestMedalFromPB: no complete PB found");
+            DebugLog("InitBestMedalFromPB: no complete IsPersonalBest ghost found");
             return false;
         }
-    }
 
-    // Checks if ghost nickname is a game-generated ghost (PB, medals, etc.)
-    bool IsGameGhost(const string &in nick) {
-        // Common game-generated ghost prefixes (skip empty prefix check)
-        return nick.StartsWith("$7FA") || nick.StartsWith("$FD8") || nick.StartsWith("$5D8");
+        BestMedalEarned = GetMedalForTime(playground.Map, CachedPBFinishTime);
+        DebugLog("Initialized BestMedalEarned from PB: " + BestMedalEarned + " (time: " + CachedPBFinishTime + ")");
+        return true;
     }
 
     const array<uint>@ GetActualPBCheckpoints() {
-        auto ghostData = MLFeed::GetGhostData();
-        if (ghostData is null) return null;
-        for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
-            auto ghost = ghostData.Ghosts_V2[i];
-            if ((ghost.IsPersonalBest || IsGameGhost(ghost.Nickname)) && ghost.Checkpoints.Length >= CPsToFinishTotal && CPsToFinishTotal > 0) {
-                return ghost.Checkpoints;
-            }
+        if (CachedPBCheckpoints.Length >= CPsToFinishTotal && CPsToFinishTotal > 0) {
+            return CachedPBCheckpoints;
+        }
+        if (RefreshCachedPBData()) {
+            return CachedPBCheckpoints;
         }
         return null;
     }
@@ -130,6 +142,8 @@ namespace RaceLogic {
             CPsToFinishTotal = raceData.CPsToFinish;
             if (LapsTotal > 0) CPsPerLap = CPsToFinishTotal / LapsTotal;
             else CPsPerLap = CPsToFinishTotal;
+            CachedPBCheckpoints.Resize(0);
+            CachedPBFinishTime = -1;
 
             LastCPCount = 0;
             IsRunning = true;
@@ -226,6 +240,8 @@ namespace RaceLogic {
         LastCPCount = 0;
         NextCPToPlay = 0;
         BestMedalEarned = 0;
+        CachedPBCheckpoints.Resize(0);
+        CachedPBFinishTime = -1;
         @LocalNativePlayer = null;
         // reset PB init and medal-play state
         PBInitPending = false;
