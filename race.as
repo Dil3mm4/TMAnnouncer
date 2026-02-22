@@ -14,6 +14,7 @@ namespace RaceLogic {
 
     // Medal tracking: 0=none, 1=bronze, 2=silver, 3=gold, 4=author
     int BestMedalEarned = 0;
+    bool MedalBaselineKnown = false;
     array<uint> CachedPBCheckpoints;
     int CachedPBFinishTime = -1;
 
@@ -189,9 +190,11 @@ namespace RaceLogic {
             PBInitRetries++;
             if (InitBestMedalFromPB()) {
                 PBInitPending = false;
+                MedalBaselineKnown = true;
             } else if (PBInitRetries >= PBInitMaxRetries) {
                 PBInitPending = false;
                 BestMedalEarned = 0;
+                MedalBaselineKnown = false;
                 DebugLog("InitBestMedalFromPB: giving up after retries");
             }
         }
@@ -244,8 +247,10 @@ namespace RaceLogic {
                 PBInitPending = true;
                 PBInitRetries = 0;
                 PBInitLastAttemptTime = Time::Now;
+                MedalBaselineKnown = false;
             } else {
                 PBInitPending = false;
+                MedalBaselineKnown = true;
             }
 
             DebugLog("RACE START");
@@ -264,13 +269,21 @@ namespace RaceLogic {
                 int finishTime = mlPlayer.lastCpTime;
                 int medal = GetMedalForTime(playground.Map, finishTime);
 
-                // Only play if we earned a NEW (better) medal
-                if (medal > BestMedalEarned) {
+                // If we could not initialize from PB data, learn the baseline silently
+                // from the first completed run to avoid false medal announcements.
+                if (!MedalBaselineKnown) {
                     BestMedalEarned = medal;
-                    // Play medal only once per StartTime
-                    if (medal > 0 && LastMedalPlayedStartTime != LastStartTime) {
-                        PlayMedal(medal);
-                        LastMedalPlayedStartTime = LastStartTime;
+                    MedalBaselineKnown = true;
+                    DebugLog("Medal baseline learned from current run: " + medal + " (no medal sound)");
+                } else {
+                    // Only play if we earned a NEW (better) medal
+                    if (medal > BestMedalEarned) {
+                        BestMedalEarned = medal;
+                        // Play medal only once per StartTime
+                        if (medal > 0 && LastMedalPlayedStartTime != LastStartTime) {
+                            PlayMedal(medal);
+                            LastMedalPlayedStartTime = LastStartTime;
+                        }
                     }
                 }
                 IsRunning = false;
@@ -339,6 +352,7 @@ namespace RaceLogic {
         LastCPCount = 0;
         NextCPToPlay = 0;
         BestMedalEarned = 0;
+        MedalBaselineKnown = false;
         CachedPBCheckpoints.Resize(0);
         CachedPBFinishTime = -1;
         @LocalNativePlayer = null;
