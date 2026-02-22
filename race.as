@@ -21,9 +21,9 @@ namespace RaceLogic {
     // PB init retry state
     bool PBInitPending = false;
     int PBInitRetries = 0;
-    const int PBInitMaxRetries = 240;
+    const int PBInitMaxRetries = 10;
     uint64 PBInitLastAttemptTime = 0;
-    const uint64 PBInitRetryInterval = 250; // ms
+    const uint64 PBInitRetryInterval = 500; // ms
 
     // Prevent playing the same medal multiple times for the same StartTime
     int LastMedalPlayedStartTime = -1;
@@ -242,36 +242,30 @@ namespace RaceLogic {
         uint localLoginId = MLFeed::LocalPlayersLoginIdValue;
         bool hasLocalLoginId = localLoginId != 0xFFFFFFFF;
 
-        if (ghostData !is null) {
-            // Primary path: PB flag + local login-id when available.
-            if (hasLocalLoginId && TryCacheBestGhostByCriteria(ghostData, true, false, true, localLoginId, "PersonalBest+LocalLoginId")) {
-                return true;
-            }
-
-            // Fallback 1: PB flag + local-player marker.
-            if (TryCacheBestGhostByCriteria(ghostData, true, true, false, localLoginId, "PersonalBest+IsLocalPlayer")) {
-                return true;
-            }
-
-            // Fallback 2: local login-id match (covers cases where PB flags are missing).
-            if (hasLocalLoginId && TryCacheBestGhostByCriteria(ghostData, false, false, true, localLoginId, "LocalLoginId")) {
-                return true;
-            }
-
-            // Fallback 3: local-player ghost marker.
-            if (TryCacheBestGhostByCriteria(ghostData, false, true, false, localLoginId, "IsLocalPlayer")) {
-                return true;
-            }
-        }
-
-        // Fallback 4: native player score best-race checkpoints (does not depend on ghost loading).
+        // Primary path: native player score best-race checkpoints.
         if (TryCacheFromNativeBestRaceTimes()) {
             return true;
         }
 
-        // Fallback 5: MLFeed race data best-race checkpoints for local player.
+        // Fallback 1: MLFeed race data best-race checkpoints for local player.
         if (TryCacheFromRaceDataBestRaceTimes()) {
             return true;
+        }
+
+        // Fallback 2+: ghost-derived PB sources.
+        if (ghostData !is null) {
+            if (hasLocalLoginId && TryCacheBestGhostByCriteria(ghostData, true, false, true, localLoginId, "PersonalBest+LocalLoginId")) {
+                return true;
+            }
+            if (TryCacheBestGhostByCriteria(ghostData, true, true, false, localLoginId, "PersonalBest+IsLocalPlayer")) {
+                return true;
+            }
+            if (hasLocalLoginId && TryCacheBestGhostByCriteria(ghostData, false, false, true, localLoginId, "LocalLoginId")) {
+                return true;
+            }
+            if (TryCacheBestGhostByCriteria(ghostData, false, true, false, localLoginId, "IsLocalPlayer")) {
+                return true;
+            }
         }
 
         return false;
