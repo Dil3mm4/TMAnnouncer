@@ -178,6 +178,16 @@ namespace RaceLogic {
         return null;
     }
 
+    string MedalName(int medal) {
+        switch (medal) {
+            case 4: return "Author";
+            case 3: return "Gold";
+            case 2: return "Silver";
+            case 1: return "Bronze";
+        }
+        return "None";
+    }
+
     // Returns the medal earned for a given time: 4=author, 3=gold, 2=silver, 1=bronze, 0=none
     int GetMedalForTime(CGameCtnChallenge@ map, int finishTime) {
         if (finishTime <= 0) {
@@ -213,14 +223,16 @@ namespace RaceLogic {
         if (PBInitPending && Time::Now > PBInitLastAttemptTime + PBInitRetryInterval) {
             PBInitLastAttemptTime = Time::Now;
             PBInitRetries++;
+            DebugLog("PB init retry " + tostring(PBInitRetries) + "/" + tostring(PBInitMaxRetries));
             if (InitBestMedalFromPB()) {
                 PBInitPending = false;
                 MedalBaselineKnown = true;
+                DebugLog("PB init retry succeeded");
             } else if (PBInitRetries >= PBInitMaxRetries) {
                 PBInitPending = false;
                 BestMedalEarned = 0;
                 MedalBaselineKnown = false;
-                DebugLog("InitBestMedalFromPB: giving up after retries");
+                DebugLog("InitBestMedalFromPB: giving up after retries (" + tostring(PBInitRetries) + "/" + tostring(PBInitMaxRetries) + ")");
             }
         }
 
@@ -239,6 +251,7 @@ namespace RaceLogic {
 
         if (raceData.Map != CurrentMapUid) {
             CurrentMapUid = raceData.Map;
+            DebugLog("Map changed, resetting state for map " + CurrentMapUid);
             FullReset();
             return;
         }
@@ -273,12 +286,19 @@ namespace RaceLogic {
                 PBInitRetries = 0;
                 PBInitLastAttemptTime = Time::Now;
                 MedalBaselineKnown = false;
+                DebugLog("PB init pending at race start: waiting for MLFeed ghost data");
             } else {
                 PBInitPending = false;
                 MedalBaselineKnown = true;
+                DebugLog("PB init completed at race start: baseline medal = " + MedalName(BestMedalEarned));
             }
 
-            DebugLog("RACE START");
+            DebugLog(
+                "RACE START"
+                + " | map=" + CurrentMapUid
+                + " | laps=" + tostring(LapsTotal)
+                + " | cpsToFinish=" + tostring(CPsToFinishTotal)
+            );
             return;
         }
 
@@ -293,6 +313,12 @@ namespace RaceLogic {
                 // Finish line reached
                 int finishTime = mlPlayer.lastCpTime;
                 int medal = GetMedalForTime(playground.Map, finishTime);
+                DebugLog(
+                    "Finish reached: time=" + Time::Format(uint(finishTime))
+                    + " | medal=" + MedalName(medal)
+                    + " | baselineKnown=" + tostring(MedalBaselineKnown)
+                    + " | bestBefore=" + MedalName(BestMedalEarned)
+                );
 
                 // If we could not initialize from PB data, learn the baseline silently
                 // from the first completed run to avoid false medal announcements.
@@ -303,17 +329,27 @@ namespace RaceLogic {
                 } else {
                     // Only play if we earned a NEW (better) medal
                     if (medal > BestMedalEarned) {
+                        int previousBest = BestMedalEarned;
                         BestMedalEarned = medal;
+                        DebugLog("New best medal: " + MedalName(previousBest) + " -> " + MedalName(medal));
                         // Play medal only once per StartTime
                         if (medal > 0 && LastMedalPlayedStartTime != LastStartTime) {
+                            DebugLog("Playing medal sound for " + MedalName(medal));
                             PlayMedal(medal);
                             LastMedalPlayedStartTime = LastStartTime;
+                        } else if (medal <= 0) {
+                            DebugLog("Skipping medal sound because medal is None");
+                        } else {
+                            DebugLog("Skipping medal sound because this run already played one");
                         }
+                    } else {
+                        DebugLog("No medal improvement at finish");
                     }
                 }
                 IsRunning = false;
             } else if (canCheckLapTrigger && (currentCp % int(CPsPerLap) == 0)) {
                 int lapsRemaining = int(LapsTotal) - (currentCp / int(CPsPerLap));
+                DebugLog("Lap checkpoint reached: laps remaining " + tostring(lapsRemaining));
                 PlayLap(lapsRemaining, (lapsRemaining == 1));
             } else {
                 // Checkpoint sound logic with intervals
@@ -328,9 +364,27 @@ namespace RaceLogic {
                         uint pbTime = pbCheckpoints[ghostIdx];
                         if (pbTime > 0) {
                             bool faster = uint(mlPlayer.lastCpTime) <= pbTime;
+                            int deltaMs = int(mlPlayer.lastCpTime) - int(pbTime);
+                            DebugLog(
+                                "CP " + tostring(currentCp)
+                                + ": split " + Time::Format(uint(mlPlayer.lastCpTime))
+                                + " vs PB " + Time::Format(pbTime)
+                                + " (" + tostring(deltaMs) + " ms)"
+                                + " -> " + (faster ? "faster/equal" : "slower")
+                            );
                             PlaySplit(faster);
                             soundPlayed = true;
+                        } else {
+                            DebugLog("CP " + tostring(currentCp) + ": PB checkpoint is 0, using generic checkpoint sound");
                         }
+                    } else if (pbCheckpoints is null) {
+                        DebugLog("CP " + tostring(currentCp) + ": PB checkpoints unavailable, using generic checkpoint sound");
+                    } else {
+                        DebugLog(
+                            "CP " + tostring(currentCp)
+                            + ": PB checkpoint index " + tostring(ghostIdx)
+                            + " out of range (len=" + tostring(pbCheckpoints.Length) + "), using generic checkpoint sound"
+                        );
                     }
 
                     if (!soundPlayed) {

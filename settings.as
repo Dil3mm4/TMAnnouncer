@@ -13,6 +13,9 @@ float S_CarhitSensitivity = 0.6;
 [Setting category="Advanced" name="Debug Mode"]
 bool S_DebugMode = false;
 
+[Setting category="Advanced" name="Show Debug Window" description="Show a live debug window with PB init and medal baseline state."]
+bool S_ShowDebugWindow = false;
+
 [Setting category="Features" name="Enable Crash Sounds"]
 bool S_CarhitEnabled = true;
 
@@ -32,6 +35,8 @@ bool S_MedalsEnabled = true;
 bool S_CustomSoundsEnabled = false;
 
 bool LastCustomSoundsEnabled = false;
+const uint DEBUG_LOG_MAX_LINES = 300;
+array<string> g_DebugWindowLines;
 
 [SettingsTab name="Manual Sound Pack Guide" order="99"]
 void RenderCustomSoundsGuide() {
@@ -98,7 +103,75 @@ void OnSettingsChanged() {
 
 // Define DebugLog here so all files can see it
 void DebugLog(const string &in msg) {
-    if (S_DebugMode) {
-        print("[TMAnnouncer] " + msg);
+    if (!S_DebugMode) {
+        return;
     }
+
+    string line = tostring(Time::Now) + " | " + msg;
+    g_DebugWindowLines.InsertLast(line);
+    if (g_DebugWindowLines.Length > DEBUG_LOG_MAX_LINES) {
+        g_DebugWindowLines.RemoveAt(0);
+    }
+
+    print("[TMAnnouncer] " + msg);
+}
+
+void RenderMenu() {
+    if (UI::MenuItem(Icons::Bug + " TM Announcer Debug", "", S_ShowDebugWindow, S_DebugMode)) {
+        S_ShowDebugWindow = !S_ShowDebugWindow;
+    }
+}
+
+void RenderInterface() {
+    if (!S_DebugMode || !S_ShowDebugWindow) {
+        return;
+    }
+
+    const MLFeed::SharedGhostDataHook_V2@ ghostData = MLFeed::GetGhostData();
+    uint sortedGhostCount = ghostData is null ? 0 : ghostData.SortedGhosts.Length;
+    uint loadedGhostCount = ghostData is null ? 0 : ghostData.LoadedGhosts.Length;
+    uint localLoginId = MLFeed::LocalPlayersLoginIdValue;
+    bool hasLocalLoginId = localLoginId != 0xFFFFFFFF;
+
+    if (!UI::Begin("TM Announcer Debug", S_ShowDebugWindow)) {
+        UI::End();
+        return;
+    }
+
+    UI::Text("\\$ff0Runtime");
+    UI::Separator();
+
+    string pbFinish = "n/a";
+    if (RaceLogic::CachedPBFinishTime > 0) {
+        pbFinish = Time::Format(uint(RaceLogic::CachedPBFinishTime));
+    }
+
+    UI::Text("Map UID: " + RaceLogic::CurrentMapUid);
+    UI::Text("IsRunning: " + tostring(RaceLogic::IsRunning) + " | StartTime: " + tostring(RaceLogic::LastStartTime));
+    UI::Text("Laps: " + tostring(RaceLogic::LapsTotal) + " | CPsToFinish: " + tostring(RaceLogic::CPsToFinishTotal) + " | CPsPerLap: " + tostring(RaceLogic::CPsPerLap));
+    UI::Text("Last CP: " + tostring(RaceLogic::LastCPCount) + " | Next CP Trigger: " + tostring(RaceLogic::NextCPToPlay));
+    UI::Text("PB Init Pending: " + tostring(RaceLogic::PBInitPending) + " | Retries: " + tostring(RaceLogic::PBInitRetries) + "/" + tostring(RaceLogic::PBInitMaxRetries));
+    UI::Text("PB Cached Finish: " + pbFinish + " | Cached CP Count: " + tostring(RaceLogic::CachedPBCheckpoints.Length));
+    UI::Text("Medal Baseline Known: " + tostring(RaceLogic::MedalBaselineKnown) + " | Best Medal: " + tostring(RaceLogic::BestMedalEarned));
+    UI::Text("Local LoginId: " + (hasLocalLoginId ? tostring(localLoginId) : "n/a") + " | Ghosts Sorted/Loaded: " + tostring(sortedGhostCount) + "/" + tostring(loadedGhostCount));
+
+    UI::Separator();
+    if (UI::Button(Icons::Refresh + " Refresh PB Cache")) {
+        bool ok = RaceLogic::RefreshCachedPBData();
+        DebugLog("Manual RefreshCachedPBData: " + tostring(ok));
+    }
+    UI::SameLine();
+    if (UI::Button(Icons::Trash + " Clear Debug Log")) {
+        g_DebugWindowLines.Resize(0);
+    }
+
+    UI::Separator();
+    UI::Text("\\$ff0Events");
+    UI::BeginChild("TMAnnouncerDebugLog", vec2(0, 260));
+    for (uint i = 0; i < g_DebugWindowLines.Length; i++) {
+        UI::Text(g_DebugWindowLines[i]);
+    }
+    UI::EndChild();
+
+    UI::End();
 }
