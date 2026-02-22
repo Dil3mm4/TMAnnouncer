@@ -206,6 +206,7 @@ namespace RaceLogic {
 
         if (mlPlayer.CpCount > LastCPCount) {
             int currentCp = mlPlayer.CpCount;
+            bool canCheckLapTrigger = LapsTotal > 1 && CPsPerLap > 0;
             if (currentCp == int(CPsToFinishTotal)) {
                 // Finish line reached
                 int finishTime = mlPlayer.lastCpTime;
@@ -221,7 +222,7 @@ namespace RaceLogic {
                     }
                 }
                 IsRunning = false;
-            } else if (LapsTotal > 1 && (currentCp % int(CPsPerLap) == 0)) {
+            } else if (canCheckLapTrigger && (currentCp % int(CPsPerLap) == 0)) {
                 int lapsRemaining = int(LapsTotal) - (currentCp / int(CPsPerLap));
                 PlayLap(lapsRemaining, (lapsRemaining == 1));
             } else {
