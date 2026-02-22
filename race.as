@@ -346,7 +346,11 @@ namespace RaceLogic {
 
         if (!RefreshCachedPBData()) {
             BestMedalEarned = 0;
-            DebugLog("InitBestMedalFromPB: no usable complete PB source found");
+            if (CanConfirmNoPriorPB()) {
+                DebugLog("InitBestMedalFromPB: no prior PB detected");
+            } else {
+                DebugLog("InitBestMedalFromPB: no usable complete PB source found");
+            }
             return false;
         }
 
@@ -410,22 +414,31 @@ namespace RaceLogic {
 
         // If PB init is pending (MLFeed wasn't ready at race start), retry periodically
         if (PBInitPending && Time::Now > PBInitLastAttemptTime + PBInitRetryInterval) {
-            PBInitLastAttemptTime = Time::Now;
-            PBInitRetries++;
-            DebugLog("PB init retry " + tostring(PBInitRetries) + "/" + tostring(PBInitMaxRetries));
-            if (InitBestMedalFromPB()) {
+            // If data sources are now loaded and still show no complete PB, stop retrying.
+            if (CanConfirmNoPriorPB()) {
                 PBInitPending = false;
-                MedalBaselineKnown = true;
-                DebugLog("PB init retry succeeded");
-            } else if (PBInitRetries >= PBInitMaxRetries) {
-                PBInitPending = false;
+                PBInitRetries = 0;
                 BestMedalEarned = 0;
-                if (CanConfirmNoPriorPB()) {
+                MedalBaselineKnown = true;
+                DebugLog("PB init: no prior PB detected, baseline set to None");
+            } else {
+                PBInitLastAttemptTime = Time::Now;
+                PBInitRetries++;
+                DebugLog("PB init retry " + tostring(PBInitRetries) + "/" + tostring(PBInitMaxRetries));
+                if (InitBestMedalFromPB()) {
+                    PBInitPending = false;
                     MedalBaselineKnown = true;
-                    DebugLog("InitBestMedalFromPB: no prior PB detected, baseline set to None");
-                } else {
-                    MedalBaselineKnown = false;
-                    DebugLog("InitBestMedalFromPB: giving up after retries (" + tostring(PBInitRetries) + "/" + tostring(PBInitMaxRetries) + ")");
+                    DebugLog("PB init retry succeeded");
+                } else if (PBInitRetries >= PBInitMaxRetries) {
+                    PBInitPending = false;
+                    BestMedalEarned = 0;
+                    if (CanConfirmNoPriorPB()) {
+                        MedalBaselineKnown = true;
+                        DebugLog("InitBestMedalFromPB: no prior PB detected, baseline set to None");
+                    } else {
+                        MedalBaselineKnown = false;
+                        DebugLog("InitBestMedalFromPB: giving up after retries (" + tostring(PBInitRetries) + "/" + tostring(PBInitMaxRetries) + ")");
+                    }
                 }
             }
         }
@@ -476,11 +489,19 @@ namespace RaceLogic {
             // Initialize best medal from existing PB (ghost data is loaded at race start)
             bool initOk = InitBestMedalFromPB();
             if (!initOk) {
-                PBInitPending = true;
-                PBInitRetries = 0;
-                PBInitLastAttemptTime = Time::Now;
-                MedalBaselineKnown = false;
-                DebugLog("PB init pending at race start: waiting for MLFeed ghost data");
+                if (CanConfirmNoPriorPB()) {
+                    PBInitPending = false;
+                    PBInitRetries = 0;
+                    BestMedalEarned = 0;
+                    MedalBaselineKnown = true;
+                    DebugLog("PB init at race start: no prior PB detected, baseline set to None");
+                } else {
+                    PBInitPending = true;
+                    PBInitRetries = 0;
+                    PBInitLastAttemptTime = Time::Now;
+                    MedalBaselineKnown = false;
+                    DebugLog("PB init pending at race start: waiting for PB data source");
+                }
             } else {
                 PBInitPending = false;
                 MedalBaselineKnown = true;
