@@ -14,41 +14,52 @@ namespace RaceLogic {
 
     // Medal tracking: 0=none, 1=bronze, 2=silver, 3=gold, 4=author
     int BestMedalEarned = 0;
+    // PB init retry state
+    bool PBInitPending = false;
+    int PBInitRetries = 0;
+    const int PBInitMaxRetries = 10;
+    uint64 PBInitLastAttemptTime = 0;
+    const uint64 PBInitRetryInterval = 500; // ms
+
+    // Prevent playing the same medal multiple times for the same StartTime
+    int LastMedalPlayedStartTime = -1;
 
     // Detect best medal already earned from existing PB
-    void InitBestMedalFromPB() {
+    bool InitBestMedalFromPB() {
         auto app = GetApp();
         auto playground = cast<CSmArenaClient@>(app.CurrentPlayground);
-        if (playground is null || playground.Map is null) return;
+        if (playground is null || playground.Map is null) return false;
 
         // Try to get PB time from ghost data
         auto ghostData = MLFeed::GetGhostData();
-        if (ghostData is null) return;
+        if (ghostData is null) return false;
 
         int pbTime = -1;
         for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
             auto ghost = ghostData.Ghosts_V2[i];
-            if (ghost.IsPersonalBest || IsGameGhost(ghost.Nickname)) {
-                // Get the last checkpoint time (finish time)
-                if (ghost.Checkpoints.Length > 0) {
-                    pbTime = ghost.Checkpoints[ghost.Checkpoints.Length - 1];
-                    break;
-                }
+            // Only consider ghosts that are PBs or game ghosts AND have completed the track
+            if ((ghost.IsPersonalBest || IsGameGhost(ghost.Nickname)) && ghost.Checkpoints.Length >= CPsToFinishTotal && CPsToFinishTotal > 0) {
+                // Get the finish time (last checkpoint)
+                pbTime = ghost.Checkpoints[ghost.Checkpoints.Length - 1];
+                break;
             }
         }
 
         if (pbTime > 0) {
             BestMedalEarned = GetMedalForTime(playground.Map, pbTime);
             DebugLog("Initialized BestMedalEarned from PB: " + BestMedalEarned + " (time: " + pbTime + ")");
+            return true;
         } else {
             BestMedalEarned = 0;
-            DebugLog("No PB found, BestMedalEarned = 0");
+            DebugLog("InitBestMedalFromPB: no complete PB found");
+            return false;
         }
     }
 
     // Checks if ghost nickname is a game-generated ghost (PB, medals, etc.)
     bool IsGameGhost(const string &in nick) {
-        return nick.StartsWith("") || nick.StartsWith("$7FA") || nick.StartsWith("$FD8") || nick.StartsWith("$5D8");
+        // Common game-generated ghost prefixes (skip empty prefix check)
+        return nick.StartsWith("$7FA") || nick.StartsWith("$FD8") || nick.StartsWith("$5D8");
     }
 
     const array<uint>@ GetActualPBCheckpoints() {
@@ -56,7 +67,9 @@ namespace RaceLogic {
         if (ghostData is null) return null;
         for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
             auto ghost = ghostData.Ghosts_V2[i];
-            if (ghost.IsPersonalBest || IsGameGhost(ghost.Nickname)) return ghost.Checkpoints;
+            if ((ghost.IsPersonalBest || IsGameGhost(ghost.Nickname)) && ghost.Checkpoints.Length >= CPsToFinishTotal && CPsToFinishTotal > 0) {
+                return ghost.Checkpoints;
+            }
         }
         return null;
     }
@@ -78,6 +91,19 @@ namespace RaceLogic {
         if (playground is null || playground.GameTerminals.Length == 0 || playground.Map is null) {
             if (IsRunning) FullReset();
             return;
+        }
+
+        // If PB init is pending (MLFeed wasn't ready at race start), retry periodically
+        if (PBInitPending && Time::Now > PBInitLastAttemptTime + PBInitRetryInterval) {
+            PBInitLastAttemptTime = Time::Now;
+            PBInitRetries++;
+            if (InitBestMedalFromPB()) {
+                PBInitPending = false;
+            } else if (PBInitRetries >= PBInitMaxRetries) {
+                PBInitPending = false;
+                BestMedalEarned = 0;
+                DebugLog("InitBestMedalFromPB: giving up after retries");
+            }
         }
 
         auto terminal = playground.GameTerminals[0];
@@ -112,7 +138,14 @@ namespace RaceLogic {
             @LocalNativePlayer = null; // Reset to get fresh reference
 
             // Initialize best medal from existing PB (ghost data is loaded at race start)
-            InitBestMedalFromPB();
+            bool initOk = InitBestMedalFromPB();
+            if (!initOk) {
+                PBInitPending = true;
+                PBInitRetries = 0;
+                PBInitLastAttemptTime = Time::Now;
+            } else {
+                PBInitPending = false;
+            }
 
             DebugLog("RACE START");
             return;
@@ -130,8 +163,10 @@ namespace RaceLogic {
                 // Only play if we earned a NEW (better) medal
                 if (medal > BestMedalEarned) {
                     BestMedalEarned = medal;
-                    if (medal > 0) {
+                    // Play medal only once per StartTime
+                    if (medal > 0 && LastMedalPlayedStartTime != LastStartTime) {
                         PlayMedal(medal);
+                        LastMedalPlayedStartTime = LastStartTime;
                     }
                 }
                 IsRunning = false;
@@ -192,6 +227,11 @@ namespace RaceLogic {
         NextCPToPlay = 0;
         BestMedalEarned = 0;
         @LocalNativePlayer = null;
+        // reset PB init and medal-play state
+        PBInitPending = false;
+        PBInitRetries = 0;
+        PBInitLastAttemptTime = 0;
+        LastMedalPlayedStartTime = -1;
     }
 
     // CP sound interval logic:
