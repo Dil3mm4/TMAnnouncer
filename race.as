@@ -23,7 +23,7 @@ namespace RaceLogic {
     int PBInitRetries = 0;
     const int PBInitMaxRetries = 10;
     uint64 PBInitLastAttemptTime = 0;
-    const uint64 PBInitRetryInterval = 500; // ms
+    const uint64 PBInitRetryInterval = 1500; // ms
 
     // Prevent playing the same medal multiple times for the same StartTime
     int LastMedalPlayedStartTime = -1;
@@ -49,6 +49,37 @@ namespace RaceLogic {
         return -1;
     }
 
+    bool TryResolveCompleteRunIndices(const array<uint>@ checkpointTimes, uint &out sourceStartIndex, uint &out finishIndex) {
+        sourceStartIndex = 0;
+        finishIndex = 0;
+
+        if (checkpointTimes is null || CPsToFinishTotal == 0 || checkpointTimes.Length == 0) {
+            return false;
+        }
+
+        // Expected shape: [cp1, cp2, ..., finish]
+        if (checkpointTimes.Length >= CPsToFinishTotal && checkpointTimes[CPsToFinishTotal - 1] > 0) {
+            sourceStartIndex = 0;
+            finishIndex = CPsToFinishTotal - 1;
+            return true;
+        }
+
+        // Alternate shape: [0, cp1, cp2, ..., finish]
+        if (checkpointTimes.Length > CPsToFinishTotal && checkpointTimes[0] == 0 && checkpointTimes[CPsToFinishTotal] > 0) {
+            sourceStartIndex = 1;
+            finishIndex = CPsToFinishTotal;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool HasCompleteRunTimes(const array<uint>@ checkpointTimes) {
+        uint sourceStartIndex = 0;
+        uint finishIndex = 0;
+        return TryResolveCompleteRunIndices(checkpointTimes, sourceStartIndex, finishIndex);
+    }
+
     bool TryCacheFromCheckpointTimes(const array<uint>@ checkpointTimes, const string &in sourceTag) {
         if (checkpointTimes is null || CPsToFinishTotal == 0 || checkpointTimes.Length == 0) {
             return false;
@@ -56,22 +87,7 @@ namespace RaceLogic {
 
         uint sourceStartIndex = 0;
         uint finishIndex = 0;
-        bool hasCompleteRun = false;
-
-        // Expected shape: [cp1, cp2, ..., finish]
-        if (checkpointTimes.Length >= CPsToFinishTotal && checkpointTimes[CPsToFinishTotal - 1] > 0) {
-            sourceStartIndex = 0;
-            finishIndex = CPsToFinishTotal - 1;
-            hasCompleteRun = true;
-        }
-        // Alternate shape: [0, cp1, cp2, ..., finish]
-        else if (checkpointTimes.Length > CPsToFinishTotal && checkpointTimes[0] == 0 && checkpointTimes[CPsToFinishTotal] > 0) {
-            sourceStartIndex = 1;
-            finishIndex = CPsToFinishTotal;
-            hasCompleteRun = true;
-        }
-
-        if (!hasCompleteRun) {
+        if (!TryResolveCompleteRunIndices(checkpointTimes, sourceStartIndex, finishIndex)) {
             return false;
         }
 
@@ -130,6 +146,55 @@ namespace RaceLogic {
         }
 
         return false;
+    }
+
+    bool CanConfirmNoPriorPB() {
+        bool observedAnySource = false;
+
+        // Source A: native score best race times.
+        auto app = GetApp();
+        auto playground = cast<CSmArenaClient@>(app.CurrentPlayground);
+        if (playground !is null && playground.GameTerminals.Length > 0) {
+            auto controlledPlayer = cast<CSmPlayer@>(playground.GameTerminals[0].ControlledPlayer);
+            if (controlledPlayer !is null && controlledPlayer.ScriptAPI !is null) {
+                auto scriptPlayer = cast<CSmScriptPlayer@>(controlledPlayer.ScriptAPI);
+                if (scriptPlayer !is null && scriptPlayer.Score !is null) {
+                    observedAnySource = true;
+                    array<uint> nativeBestRaceTimes(scriptPlayer.Score.BestRaceTimes.Length);
+                    for (uint i = 0; i < nativeBestRaceTimes.Length; i++) {
+                        nativeBestRaceTimes[i] = scriptPlayer.Score.BestRaceTimes[i];
+                    }
+                    if (HasCompleteRunTimes(nativeBestRaceTimes)) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Source B: MLFeed race-data local player best race times.
+        const MLFeed::HookRaceStatsEventsBase_V4@ raceData = MLFeed::GetRaceData_V4();
+        if (raceData !is null) {
+            const MLFeed::PlayerCpInfo_V4@ localPlayer = raceData.LocalPlayer;
+            if (localPlayer !is null) {
+                observedAnySource = true;
+                if (HasCompleteRunTimes(localPlayer.BestRaceTimes)) {
+                    return false;
+                }
+            } else {
+                string localName = MLFeed::LocalPlayersName;
+                if (localName.Length > 0) {
+                    const MLFeed::PlayerCpInfo_V4@ playerByName = raceData.GetPlayer_V4(localName);
+                    if (playerByName !is null) {
+                        observedAnySource = true;
+                        if (HasCompleteRunTimes(playerByName.BestRaceTimes)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        return observedAnySource;
     }
 
     bool GhostMatchesCriteria(const MLFeed::GhostInfo_V2@ ghost, bool requirePersonalBest, bool requireLocalPlayer, bool requireLocalLoginId, uint localLoginId) {
@@ -355,8 +420,13 @@ namespace RaceLogic {
             } else if (PBInitRetries >= PBInitMaxRetries) {
                 PBInitPending = false;
                 BestMedalEarned = 0;
-                MedalBaselineKnown = false;
-                DebugLog("InitBestMedalFromPB: giving up after retries (" + tostring(PBInitRetries) + "/" + tostring(PBInitMaxRetries) + ")");
+                if (CanConfirmNoPriorPB()) {
+                    MedalBaselineKnown = true;
+                    DebugLog("InitBestMedalFromPB: no prior PB detected, baseline set to None");
+                } else {
+                    MedalBaselineKnown = false;
+                    DebugLog("InitBestMedalFromPB: giving up after retries (" + tostring(PBInitRetries) + "/" + tostring(PBInitMaxRetries) + ")");
+                }
             }
         }
 
