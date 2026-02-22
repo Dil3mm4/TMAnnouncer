@@ -16,6 +16,7 @@ class PackDownloader {
     bool IsDone = false;
     string LastError = "";
     string CurrentFile = "";
+    bool OverwriteExisting = false;
 
     // Rate limiting
     int ConcurrentDownloads = 0;
@@ -383,6 +384,7 @@ void CoroutineDownloadPack() {
             // If it's a major version change, overwrite directly
             // Otherwise we'll overwrite anyway (user initiated the download)
             finalFolderName = existingByName.FolderName;
+            ActiveDownload.OverwriteExisting = true;
             DebugLog("Overwriting existing pack: " + finalFolderName);
         } else {
             // Same pack name, different author - add author suffix
@@ -548,12 +550,16 @@ void CoroutineDownloadFile(ref@ data) {
 
     ActiveDownload.CurrentFile = task.FileName;
 
-    // Skip if file already exists
-    if (IO::FileExists(task.DestPath)) {
+    // Skip if file already exists and this is not an overwrite update.
+    if (IO::FileExists(task.DestPath) && !ActiveDownload.OverwriteExisting) {
         DebugLog("Skipping existing file: " + task.FileName);
         ActiveDownload.DownloadedFiles++;
         ActiveDownload.ConcurrentDownloads--;
         return;
+    }
+
+    if (IO::FileExists(task.DestPath) && ActiveDownload.OverwriteExisting) {
+        DebugLog("Overwriting existing file: " + task.FileName);
     }
 
     int retries = 3;
