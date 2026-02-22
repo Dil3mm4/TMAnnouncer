@@ -118,14 +118,6 @@ namespace RaceLogic {
             return true;
         }
 
-        // Final silent fallback: best complete ghost currently known for this map.
-        if (TryCacheBestGhostFromSorted(ghostData, false, false, "SortedGhosts:AnyCompleteGhost")) {
-            return true;
-        }
-        if (TryCacheBestGhostFromLoaded(ghostData, false, false, "LoadedGhosts:AnyCompleteGhost")) {
-            return true;
-        }
-
         return false;
     }
 
