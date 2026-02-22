@@ -38,6 +38,14 @@ bool LastCustomSoundsEnabled = false;
 const uint DEBUG_LOG_MAX_LINES = 300;
 array<string> g_DebugWindowLines;
 
+bool IsDebugToolsAvailable() {
+    return Meta::IsDeveloperMode();
+}
+
+bool IsDebugActive() {
+    return S_DebugMode && IsDebugToolsAvailable();
+}
+
 [SettingsTab name="Manual Sound Pack Guide" order="99"]
 void RenderCustomSoundsGuide() {
     UI::TextWrapped("\\$ff0Custom Sounds\\$z lets you use your own .wav files instead of the built-in voice lines.");
@@ -103,7 +111,7 @@ void OnSettingsChanged() {
 
 // Define DebugLog here so all files can see it
 void DebugLog(const string &in msg) {
-    if (!S_DebugMode) {
+    if (!IsDebugActive()) {
         return;
     }
 
@@ -117,13 +125,18 @@ void DebugLog(const string &in msg) {
 }
 
 void RenderMenu() {
+    if (!IsDebugToolsAvailable()) {
+        S_ShowDebugWindow = false;
+        return;
+    }
+
     if (UI::MenuItem(Icons::Bug + " TM Announcer Debug", "", S_ShowDebugWindow, S_DebugMode)) {
         S_ShowDebugWindow = !S_ShowDebugWindow;
     }
 }
 
 void RenderInterface() {
-    if (!S_DebugMode || !S_ShowDebugWindow) {
+    if (!IsDebugActive() || !S_ShowDebugWindow) {
         return;
     }
 
