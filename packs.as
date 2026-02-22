@@ -45,6 +45,14 @@ class PackDownloader {
 
 PackDownloader@ ActiveDownload = null;
 
+class MissingCategoriesCacheEntry {
+    string FolderName;
+    array<string> MissingCategories;
+}
+
+array<MissingCategoriesCacheEntry@> g_MissingCategoriesCache;
+bool g_MissingCategoriesCacheDirty = true;
+
 // Installed packs persistence
 class PackInfo {
     string Name;
@@ -171,6 +179,7 @@ void LoadPacksConfig() {
     // Keep custom sounds state aligned with active pack immediately at startup.
     S_CustomSoundsEnabled = g_PacksConfig.ActivePack != "Default";
     LastCustomSoundsEnabled = S_CustomSoundsEnabled;
+    InvalidateMissingCategoriesCache();
 
     if (activePackWasAdjusted) {
         SavePacksConfig();
@@ -240,6 +249,10 @@ void ScanInstalledPacks() {
     }
 }
 
+void InvalidateMissingCategoriesCache() {
+    g_MissingCategoriesCacheDirty = true;
+}
+
 // Analyze a pack and return missing categories
 array<string> GetPackMissingCategories(const string &in folderName) {
     array<string> missing;
@@ -291,6 +304,34 @@ array<string> GetPackMissingCategories(const string &in folderName) {
     }
 
     return missing;
+}
+
+void RebuildMissingCategoriesCache() {
+    if (!g_MissingCategoriesCacheDirty || g_PacksConfig is null) {
+        return;
+    }
+
+    g_MissingCategoriesCache.Resize(0);
+    for (uint i = 0; i < g_PacksConfig.InstalledPacks.Length; i++) {
+        MissingCategoriesCacheEntry@ entry = MissingCategoriesCacheEntry();
+        entry.FolderName = g_PacksConfig.InstalledPacks[i].FolderName;
+        entry.MissingCategories = GetPackMissingCategories(entry.FolderName);
+        g_MissingCategoriesCache.InsertLast(entry);
+    }
+
+    g_MissingCategoriesCacheDirty = false;
+}
+
+const array<string>@ GetCachedMissingCategories(const string &in folderName) {
+    RebuildMissingCategoriesCache();
+
+    for (uint i = 0; i < g_MissingCategoriesCache.Length; i++) {
+        if (g_MissingCategoriesCache[i].FolderName == folderName) {
+            return g_MissingCategoriesCache[i].MissingCategories;
+        }
+    }
+
+    return null;
 }
 
 string GetActivePackPath() {
@@ -522,6 +563,7 @@ void CoroutineDownloadPack() {
         g_PacksConfig.InstalledPacks.InsertLast(newPack);
     }
     SavePacksConfig();
+    InvalidateMissingCategoriesCache();
 
     ActiveDownload.IsDownloading = false;
     ActiveDownload.IsDone = true;
@@ -662,6 +704,7 @@ void DeletePack(const string &in folderName) {
     }
 
     SavePacksConfig();
+    InvalidateMissingCategoriesCache();
     UI::ShowNotification("Pack '" + folderName + "' deleted");
 }
 
@@ -734,6 +777,7 @@ void RenderSoundPacksTab() {
 
     // Installed packs section
     UI::Text("\\$aaaInstalled Packs:");
+    RebuildMissingCategoriesCache();
 
     for (uint i = 0; i < g_PacksConfig.InstalledPacks.Length; i++) {
         PackInfo@ pack = g_PacksConfig.InstalledPacks[i];
@@ -741,8 +785,8 @@ void RenderSoundPacksTab() {
         bool isActive = (folderName == g_PacksConfig.ActivePack);
 
         // Check for missing categories
-        array<string> missingCats = GetPackMissingCategories(folderName);
-        bool hasMissing = missingCats.Length > 0;
+        const array<string>@ missingCats = GetCachedMissingCategories(folderName);
+        bool hasMissing = missingCats !is null && missingCats.Length > 0;
 
         // Build display name
         string displayName = pack.Name;
