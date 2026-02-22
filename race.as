@@ -27,46 +27,106 @@ namespace RaceLogic {
     // Prevent playing the same medal multiple times for the same StartTime
     int LastMedalPlayedStartTime = -1;
 
-    bool RefreshCachedPBData() {
-        auto ghostData = MLFeed::GetGhostData();
-        if (ghostData is null || CPsToFinishTotal == 0) {
-            return false;
+    void CacheGhostData(const MLFeed::GhostInfo_V2@ ghost, int finishTime) {
+        CachedPBCheckpoints.Resize(ghost.Checkpoints.Length);
+        for (uint i = 0; i < ghost.Checkpoints.Length; i++) {
+            CachedPBCheckpoints[i] = ghost.Checkpoints[i];
         }
+        CachedPBFinishTime = finishTime;
+    }
 
-        int bestFinishTime = -1;
-        const array<uint>@ bestCheckpoints = null;
-
-        for (uint i = 0; i < ghostData.Ghosts_V2.Length; i++) {
-            auto ghost = ghostData.Ghosts_V2[i];
-            if (!ghost.IsPersonalBest) {
+    bool TryCacheBestGhostFromSorted(const MLFeed::SharedGhostDataHook_V2@ ghostData, bool requirePersonalBest, bool requireLocalPlayer, const string &in sourceTag) {
+        for (uint i = 0; i < ghostData.SortedGhosts.Length; i++) {
+            auto ghost = ghostData.SortedGhosts[i];
+            if (ghost is null) {
+                continue;
+            }
+            if (requirePersonalBest && !ghost.IsPersonalBest) {
+                continue;
+            }
+            if (requireLocalPlayer && !ghost.IsLocalPlayer) {
                 continue;
             }
             if (ghost.Checkpoints.Length < CPsToFinishTotal) {
                 continue;
             }
 
-            // Use the expected finish index for this map/lap setup.
             uint finishTime = ghost.Checkpoints[CPsToFinishTotal - 1];
             if (finishTime == 0) {
                 continue;
             }
 
-            if (bestCheckpoints is null || int(finishTime) < bestFinishTime) {
-                bestFinishTime = int(finishTime);
-                @bestCheckpoints = ghost.Checkpoints;
-            }
+            CacheGhostData(ghost, int(finishTime));
+            DebugLog("PB source selected: " + sourceTag + " (" + Time::Format(uint(CachedPBFinishTime)) + ")");
+            return true;
         }
+        return false;
+    }
 
-        if (bestCheckpoints is null) {
+    bool TryCacheBestGhostFromLoaded(const MLFeed::SharedGhostDataHook_V2@ ghostData, bool requirePersonalBest, bool requireLocalPlayer, const string &in sourceTag) {
+        for (uint i = 0; i < ghostData.LoadedGhosts.Length; i++) {
+            auto ghost = ghostData.LoadedGhosts[i];
+            if (ghost is null) {
+                continue;
+            }
+            if (requirePersonalBest && !ghost.IsPersonalBest) {
+                continue;
+            }
+            if (requireLocalPlayer && !ghost.IsLocalPlayer) {
+                continue;
+            }
+            if (ghost.Checkpoints.Length < CPsToFinishTotal) {
+                continue;
+            }
+
+            uint finishTime = ghost.Checkpoints[CPsToFinishTotal - 1];
+            if (finishTime == 0) {
+                continue;
+            }
+
+            CacheGhostData(ghost, int(finishTime));
+            DebugLog("PB source selected: " + sourceTag + " (" + Time::Format(uint(CachedPBFinishTime)) + ")");
+            return true;
+        }
+        return false;
+    }
+
+    bool RefreshCachedPBData() {
+        const MLFeed::SharedGhostDataHook_V2@ ghostData = MLFeed::GetGhostData();
+        CachedPBCheckpoints.Resize(0);
+        CachedPBFinishTime = -1;
+
+        if (ghostData is null || CPsToFinishTotal == 0) {
             return false;
         }
 
-        CachedPBCheckpoints.Resize(bestCheckpoints.Length);
-        for (uint i = 0; i < bestCheckpoints.Length; i++) {
-            CachedPBCheckpoints[i] = bestCheckpoints[i];
+        // Primary path: explicit PB flag.
+        if (TryCacheBestGhostFromSorted(ghostData, true, false, "SortedGhosts:IsPersonalBest")) {
+            return true;
         }
-        CachedPBFinishTime = bestFinishTime;
-        return true;
+
+        // Fallback 1: local-player ghost (covers sessions where PB flag is missing).
+        if (TryCacheBestGhostFromSorted(ghostData, false, true, "SortedGhosts:IsLocalPlayer")) {
+            return true;
+        }
+
+        // Fallback 2: loaded ghosts only, in case sorted list is stale/unavailable.
+        if (TryCacheBestGhostFromLoaded(ghostData, true, false, "LoadedGhosts:IsPersonalBest")) {
+            return true;
+        }
+        if (TryCacheBestGhostFromLoaded(ghostData, false, true, "LoadedGhosts:IsLocalPlayer")) {
+            return true;
+        }
+
+        // Final silent fallback: best complete ghost currently known for this map.
+        if (TryCacheBestGhostFromSorted(ghostData, false, false, "SortedGhosts:AnyCompleteGhost")) {
+            return true;
+        }
+        if (TryCacheBestGhostFromLoaded(ghostData, false, false, "LoadedGhosts:AnyCompleteGhost")) {
+            return true;
+        }
+
+        return false;
     }
 
     // Detect best medal already earned from existing PB
@@ -79,7 +139,7 @@ namespace RaceLogic {
 
         if (!RefreshCachedPBData()) {
             BestMedalEarned = 0;
-            DebugLog("InitBestMedalFromPB: no complete IsPersonalBest ghost found");
+            DebugLog("InitBestMedalFromPB: no usable complete ghost found");
             return false;
         }
 
