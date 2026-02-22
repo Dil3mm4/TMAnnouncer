@@ -2,6 +2,26 @@
 
 All notable changes to Trackmania Announcer will be documented in this file.
 
+## [2.0.1] - 2026-02-22
+
+### Changed
+- Refactored race PB data flow to cache selected ghost checkpoints/finish time for consistent split and medal comparisons.
+- Cleaned up `race.as` control-flow formatting for better readability and maintenance.
+- Normalized repository text/source files to LF line endings.
+
+### Fixed
+- Fixed PB initialization return-path bug in race startup flow.
+- Restored active sound pack state correctly at startup (custom sounds now align with saved active pack).
+- Pack re-download/update now overwrites existing files for the same pack instead of silently skipping them.
+- Guarded lap checkpoint math against `CPsPerLap == 0` edge cases.
+- Added a silent PB fallback chain when `IsPersonalBest` flags are missing (uses local-player and loaded/sorted ghost fallbacks).
+
+### Performance
+- Cached missing-category scans in the Sound Packs tab to avoid repeated per-frame filesystem checks.
+
+### Chore
+- Added `.gitattributes` to enforce LF line endings going forward.
+
 ## [2.0.0] - 2026-02-02
 
 ### Added
